@@ -96,185 +96,186 @@ input[type=text]{padding:8px; width:70%; margin:5px 0; border-radius:6px; border
 </div>
 
 <script>
-window.onload=function(){
-const firebaseConfig = {
-  apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-  authDomain: "growth-tracker-a367c.firebaseapp.com",
-  projectId: "growth-tracker-a367c",
-  storageBucket: "growth-tracker-a367c.firebasestorage.app",
-  messagingSenderId: "277469925642",
-  appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-  measurementId: "G-DPYPWBMHLB"
-};
-firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth();
-const db=firebase.firestore();
+window.onload = async function() {
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+    authDomain: "growth-tracker-a367c.firebaseapp.com",
+    projectId: "growth-tracker-a367c",
+    storageBucket: "growth-tracker-a367c.firebasestorage.app",
+    messagingSenderId: "277469925642",
+    appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+    measurementId: "G-DPYPWBMHLB"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  let currentUser = null, jobInterval, impactInterval, jobMinutes = 0, impactMinutes = 0, dailyTasks = {};
 
-let currentUser=null, jobInterval, impactInterval, jobMinutes=0, impactMinutes=0, dailyTasks={};
-
-// AUTH
-auth.onAuthStateChanged(user=>{
-  if(user){ 
-    currentUser=user;
-    document.getElementById('loginDiv').style.display='none';
-    document.getElementById('appDiv').style.display='block';
-    loadAllDays();
-    loadTasks();
-    loadHabits();
-  }else{
-    currentUser=null;
-    document.getElementById('loginDiv').style.display='block';
-    document.getElementById('appDiv').style.display='none';
-  }
-});
-window.login=function(){auth.signInWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert);}
-window.signup=function(){auth.createUserWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert);}
-window.googleLogin=function(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert);}
-window.logout=function(){auth.signOut();}
-
-// DAILY TRACKER
-function calculateScore(data={}) {
-  let score=0;
-  score+=data.prayer?1:0;
-  score+=data.mindset?1:0;
-  score+=data.prioritize?1:0;
-  score+=data.visualize?1:0;
-  score+=data.exercise?3:0;
-  score+=data.tracking?3:0;
-  score-=data.habitSlips||0;
-  score+=data.jobHours||0;
-  score+= (data.impactHours||0)*3;
-  return score;
-}
-
-// Load all days and render
-function loadAllDays(){
-  const tbody=document.querySelector("#dailyTracker tbody");
-  db.collection("daily").where("uid","==",currentUser.uid).get().then(snapshot=>{
-    let days=[];
-    snapshot.forEach(doc=>days.push(doc.data()));
-    days.sort((a,b)=>a.date.localeCompare(b.date));
-    days.forEach(d=>renderDailyRow(d));
-  });
-}
-
-// Render a single row
-function renderDailyRow(data){
-  const tbody = document.querySelector("#dailyTracker tbody");
-  if(document.getElementById("row_"+data.date)) return;
-  const row = document.createElement("tr");
-  row.id = "row_"+data.date;
-  row.innerHTML=`
-    <td>${data.date}</td>
-    <td><input type="checkbox" ${data.prayer?"checked":""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
-    <td><input type="checkbox" ${data.mindset?"checked":""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
-    <td>${data.prioritize?'<span style="color:green;">✔</span>':''}</td>
-    <td><input type="checkbox" ${data.visualize?"checked":""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
-    <td><input type="checkbox" ${data.exercise?"checked":""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
-    <td><input type="checkbox" ${data.tracking?"checked":""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
-    <td>${data.habitSlips||0}</td>
-    <td>${data.jobHours||0}</td>
-    <td>${data.impactHours||0}</td>
-    <td>${calculateScore(data)}</td>
-  `;
-  tbody.appendChild(row);
-}
-
-window.updateCheckbox=function(el,field,date){
-  db.collection("daily").doc(`${currentUser.uid}_${date}`).set({[field]:el.checked, uid:currentUser.uid, date:date},{merge:true});
-}
-
-// ADD DAY - overwrite and render immediately
-window.addDay=function(){
-  const today = new Date().toISOString().split("T")[0];
-  const docRef = db.collection("daily").doc(`${currentUser.uid}_${today}`);
-  const data={uid: currentUser.uid, date: today, prayer:false, mindset:false, prioritize:false, visualize:false,
-              exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0};
-  docRef.set(data).then(()=>{ renderDailyRow(data); });
-}
-
-// PRIORITIZATION TASKS
-function loadTasks(){ dailyTasks={}; document.getElementById("taskInputs").innerHTML=""; }
-window.addTask=function(){ 
-  const taskName=document.getElementById("newTask").value.trim(); 
-  if(!taskName) return; 
-  dailyTasks[taskName]=false; 
-  renderTasks(); 
-  document.getElementById("newTask").value=""; 
-}
-function renderTasks(){
-  const container=document.getElementById("taskInputs");
-  container.innerHTML="";
-  const today=new Date().toISOString().split("T")[0];
-  Object.keys(dailyTasks).forEach(name=>{
-    const div=document.createElement("div");
-    const checked=dailyTasks[name]?'checked':'';
-    div.innerHTML=`<input type="checkbox" ${checked} onchange="toggleTask('${name}')"> ${name}`;
-    container.appendChild(div);
-  });
-  const allChecked=Object.values(dailyTasks).every(v=>v);
-  db.collection("daily").doc(`${currentUser.uid}_${today}`).set({prioritize:allChecked},{merge:true});
-}
-window.toggleTask=function(name){ dailyTasks[name]=!dailyTasks[name]; renderTasks(); }
-
-// HABITS
-function loadHabits(){
-  const habitList=document.getElementById("habitList");
-  habitList.innerHTML="";
-  db.collection("users").doc(currentUser.uid).get().then(doc=>{
-    if(doc.exists){
-      const habits=doc.data().habits||{};
-      Object.keys(habits).forEach(name=>{ renderHabit(name, habits[name]); });
+  // AUTH
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('loginDiv').style.display = 'none';
+      document.getElementById('appDiv').style.display = 'block';
+      await loadAllDays();
+      loadTasks();
+      loadHabits();
+    } else {
+      currentUser = null;
+      document.getElementById('loginDiv').style.display = 'block';
+      document.getElementById('appDiv').style.display = 'none';
     }
   });
-}
-function renderHabit(name,data){
-  const habitList=document.getElementById("habitList");
-  const div=document.createElement("div");
-  const lastSlip=new Date(data.lastSlip);
-  const today=new Date();
-  const diff=Math.floor((today-lastSlip)/(1000*60*60*24));
-  div.id="habit_"+name;
-  div.innerHTML=`<span>${name} (Days since last slip: ${diff}) </span>
-    <button class="danger" onclick="markSlip('${name}')">Mark Slip</button>
-    <button class="secondary" onclick="deleteHabit('${name}')">Delete</button>`;
-  habitList.appendChild(div);
-}
-window.addHabit=function(){
-  const name=document.getElementById("newHabit").value.trim();
-  if(!name) return;
-  const docRef=db.collection("users").doc(currentUser.uid);
-  docRef.set({habits:{[name]:{lastSlip:new Date().toISOString(),slipsCount:0}}},{merge:true}).then(()=>{ renderHabit(name,{lastSlip:new Date().toISOString(),slipsCount:0}); });
-  document.getElementById("newHabit").value="";
-}
-window.markSlip=function(name){
-  const docRef=db.collection("users").doc(currentUser.uid);
-  docRef.get().then(doc=>{
-    const habits=doc.data().habits;
-    habits[name].lastSlip=new Date().toISOString();
-    habits[name].slipsCount+=1;
-    docRef.set({habits:habits},{merge:true});
-    renderHabit(name,habits[name]);
-  });
-}
-window.deleteHabit=function(name){
-  const docRef=db.collection("users").doc(currentUser.uid);
-  docRef.get().then(doc=>{
-    const habits=doc.data().habits;
-    delete habits[name];
-    docRef.set({habits:habits},{merge:true});
-    document.getElementById("habit_"+name).remove();
-  });
-}
+  window.login = () => auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert);
+  window.signup = () => auth.createUserWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert);
+  window.googleLogin = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert);
+  window.logout = () => auth.signOut();
 
-// TIMERS
-window.startJobTimer=function(){ clearInterval(jobInterval); jobInterval=setInterval(()=>{ jobMinutes++; document.getElementById("jobTimer").innerText=jobMinutes; updateTimer('jobHours',jobMinutes); },60000);}
-window.stopJobTimer=function(){ clearInterval(jobInterval);}
-window.startImpactTimer=function(){ clearInterval(impactInterval); impactInterval=setInterval(()=>{ impactMinutes++; document.getElementById("impactTimer").innerText=impactMinutes; updateTimer('impactHours',impactMinutes); },60000);}
-window.stopImpactTimer=function(){ clearInterval(impactInterval);}
-function updateTimer(field,value){ const today=new Date().toISOString().split("T")[0]; db.collection("daily").doc(`${currentUser.uid}_${today}`).set({[field]:value},{merge:true}); }
+  // --- DAILY TRACKER ---
+  function calculateScore(data = {}) {
+    let score = 0;
+    score += data.prayer ? 1 : 0;
+    score += data.mindset ? 1 : 0;
+    score += data.prioritize ? 1 : 0;
+    score += data.visualize ? 1 : 0;
+    score += data.exercise ? 3 : 0;
+    score += data.tracking ? 3 : 0;
+    score -= data.habitSlips || 0;
+    score += data.jobHours || 0;
+    score += (data.impactHours || 0) * 3;
+    return score;
+  }
 
-};
+  async function loadAllDays() {
+    const tbody = document.querySelector("#dailyTracker tbody");
+    tbody.innerHTML = '';
+    const snapshot = await db.collection("daily").where("uid", "==", currentUser.uid).get();
+    let days = [];
+    snapshot.forEach(doc => days.push(doc.data()));
+    days.sort((a, b) => a.date.localeCompare(b.date));
+    days.forEach(d => renderDailyRow(d));
+  }
+
+  function renderDailyRow(data) {
+    const tbody = document.querySelector("#dailyTracker tbody");
+    if (document.getElementById("row_" + data.date)) return;
+    const row = document.createElement("tr");
+    row.id = "row_" + data.date;
+    row.innerHTML = `
+      <td>${data.date}</td>
+      <td><input type="checkbox" ${data.prayer ? "checked" : ""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
+      <td><input type="checkbox" ${data.mindset ? "checked" : ""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
+      <td>${data.prioritize ? '<span style="color:green;">✔</span>' : ''}</td>
+      <td><input type="checkbox" ${data.visualize ? "checked" : ""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
+      <td><input type="checkbox" ${data.exercise ? "checked" : ""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
+      <td><input type="checkbox" ${data.tracking ? "checked" : ""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
+      <td>${data.habitSlips || 0}</td>
+      <td>${data.jobHours || 0}</td>
+      <td>${data.impactHours || 0}</td>
+      <td>${calculateScore(data)}</td>
+    `;
+    tbody.appendChild(row);
+  }
+
+  window.updateCheckbox = function (el, field, date) {
+    db.collection("daily").doc(`${currentUser.uid}_${date}`).set({ [field]: el.checked, uid: currentUser.uid, date: date }, { merge: true });
+  }
+
+  window.addDay = async function () {
+    const today = new Date().toISOString().split("T")[0];
+    const docRef = db.collection("daily").doc(`${currentUser.uid}_${today}`);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      const data = { uid: currentUser.uid, date: today, prayer: false, mindset: false, prioritize: false, visualize: false, exercise: false, tracking: false, habitSlips: 0, jobHours: 0, impactHours: 0 };
+      await docRef.set(data);
+      renderDailyRow(data);
+    } else {
+      renderDailyRow(doc.data());
+    }
+  }
+
+  // --- PRIORITIZATION TASKS ---
+  function loadTasks() { dailyTasks = {}; document.getElementById("taskInputs").innerHTML = ""; }
+  window.addTask = function () {
+    const taskName = document.getElementById("newTask").value.trim();
+    if (!taskName) return;
+    dailyTasks[taskName] = false;
+    renderTasks();
+    document.getElementById("newTask").value = "";
+  }
+  function renderTasks() {
+    const container = document.getElementById("taskInputs");
+    container.innerHTML = "";
+    const today = new Date().toISOString().split("T")[0];
+    Object.keys(dailyTasks).forEach(name => {
+      const div = document.createElement("div");
+      const checked = dailyTasks[name] ? 'checked' : '';
+      div.innerHTML = `<input type="checkbox" ${checked} onchange="toggleTask('${name}')"> ${name}`;
+      container.appendChild(div);
+    });
+    const allChecked = Object.values(dailyTasks).every(v => v);
+    db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ prioritize: allChecked }, { merge: true });
+  }
+  window.toggleTask = function (name) { dailyTasks[name] = !dailyTasks[name]; renderTasks(); }
+
+  // --- HABITS ---
+  function loadHabits() {
+    const habitList = document.getElementById("habitList");
+    habitList.innerHTML = "";
+    db.collection("users").doc(currentUser.uid).get().then(doc => {
+      if (doc.exists) {
+        const habits = doc.data().habits || {};
+        Object.keys(habits).forEach(name => { renderHabit(name, habits[name]); });
+      }
+    });
+  }
+  function renderHabit(name, data) {
+    const habitList = document.getElementById("habitList");
+    const div = document.createElement("div");
+    const lastSlip = new Date(data.lastSlip);
+    const today = new Date();
+    const diff = Math.floor((today - lastSlip) / (1000 * 60 * 60 * 24));
+    div.id = "habit_" + name;
+    div.innerHTML = `<span>${name} (Days since last slip: ${diff}) </span>
+      <button class="danger" onclick="markSlip('${name}')">Mark Slip</button>
+      <button class="secondary" onclick="deleteHabit('${name}')">Delete</button>`;
+    habitList.appendChild(div);
+  }
+  window.addHabit = function () {
+    const name = document.getElementById("newHabit").value.trim();
+    if (!name) return;
+    const docRef = db.collection("users").doc(currentUser.uid);
+    docRef.set({ habits: { [name]: { lastSlip: new Date().toISOString(), slipsCount: 0 } } }, { merge: true }).then(() => { renderHabit(name, { lastSlip: new Date().toISOString(), slipsCount: 0 }); });
+    document.getElementById("newHabit").value = "";
+  }
+  window.markSlip = function (name) {
+    const docRef = db.collection("users").doc(currentUser.uid);
+    docRef.get().then(doc => {
+      const habits = doc.data().habits;
+      habits[name].lastSlip = new Date().toISOString();
+      habits[name].slipsCount += 1;
+      docRef.set({ habits: habits }, { merge: true });
+      renderHabit(name, habits[name]);
+    });
+  }
+  window.deleteHabit = function (name) {
+    const docRef = db.collection("users").doc(currentUser.uid);
+    docRef.get().then(doc => {
+      const habits = doc.data().habits;
+      delete habits[name];
+      docRef.set({ habits: habits }, { merge: true });
+      document.getElementById("habit_" + name).remove();
+    });
+  }
+
+  // --- TIMERS ---
+  window.startJobTimer = function () { clearInterval(jobInterval); jobInterval = setInterval(() => { jobMinutes++; document.getElementById("jobTimer").innerText = jobMinutes; updateTimer('jobHours', jobMinutes); }, 60000); }
+  window.stopJobTimer = function () { clearInterval(jobInterval); }
+  window.startImpactTimer = function () { clearInterval(impactInterval); impactInterval = setInterval(() => { impactMinutes++; document.getElementById("impactTimer").innerText = impactMinutes; updateTimer('impactHours', impactMinutes); }, 60000); }
+  window.stopImpactTimer = function () { clearInterval(impactInterval); }
+  function updateTimer(field, value) { const today = new Date().toISOString().split("T")[0]; db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ [field]: value }, { merge: true }); }
+
+}
 </script>
 </body>
 </html>
