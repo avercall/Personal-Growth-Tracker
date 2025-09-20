@@ -9,27 +9,22 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f0f4f8;
-    margin: 0;
-    padding: 20px;
-    text-align: center;
-  }
-  h1,h2,h3 { color:#2c3e50; }
-  .card { background:white; border-radius:12px; box-shadow:0 6px 12px rgba(0,0,0,0.1); padding:20px; margin:20px auto; max-width:900px; }
-  table { width:100%; border-collapse:collapse; margin-top:15px; }
-  th, td { border:1px solid #ddd; padding:10px; text-align:center; }
-  th { background-color:#3498db; color:white; }
-  tr:hover { background-color:#f1f1f1; }
-  input[type="checkbox"] { transform: scale(1.3); cursor:pointer; }
-  button { padding:10px 18px; margin:5px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s; }
-  button:hover { opacity:0.9; }
-  button.primary { background-color:#3498db; color:white; }
-  button.secondary { background-color:#2ecc71; color:white; }
-  button.danger { background-color:#e74c3c; color:white; }
-  input { padding:8px; width:70%; margin:5px 0; border-radius:6px; border:1px solid #ccc; }
-  canvas { background:white; border-radius:10px; padding:10px; margin-top:20px; box-shadow:0 4px 6px rgba(0,0,0,0.1); }
+  body { font-family:'Segoe UI', Tahoma, Geneva, Verdana,sans-serif; background:#f0f4f8; margin:0; padding:20px; text-align:center;}
+  h1,h2,h3{color:#2c3e50;}
+  .card{background:white; border-radius:12px; box-shadow:0 6px 12px rgba(0,0,0,0.1); padding:20px; margin:20px auto; max-width:900px;}
+  table{width:100%; border-collapse:collapse; margin-top:15px;}
+  th,td{border:1px solid #ddd; padding:10px; text-align:center;}
+  th{background-color:#3498db; color:white;}
+  tr:hover{background-color:#f1f1f1;}
+  input[type="checkbox"]{transform:scale(1.3); cursor:pointer;}
+  button{padding:10px 18px; margin:5px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s;}
+  button:hover{opacity:0.9;}
+  button.primary{background-color:#3498db; color:white;}
+  button.secondary{background-color:#2ecc71; color:white;}
+  button.danger{background-color:#e74c3c; color:white;}
+  input[type=text]{padding:8px; width:70%; margin:5px 0; border-radius:6px; border:1px solid #ccc;}
+  canvas{background:white; border-radius:10px; padding:10px; margin-top:20px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
+  .task-container, .habit-container{margin-top:10px;}
 </style>
 </head>
 <body>
@@ -72,18 +67,20 @@
     </table>
   </div>
 
-  <!-- Prioritization Checklist -->
+  <!-- Prioritization Tasks -->
   <div class="card">
-    <h3>Prioritization Checklist</h3>
-    <input type="checkbox" class="taskCheckbox"> Task 1<br>
-    <input type="checkbox" class="taskCheckbox"> Task 2<br>
-    <input type="checkbox" class="taskCheckbox"> Task 3<br>
+    <h3>Prioritization Checklist (Resets Daily)</h3>
+    <div id="taskInputs" class="task-container"></div>
+    <input type="text" id="newTask" placeholder="Add new task">
+    <button class="secondary" onclick="addTask()">Add Task</button>
   </div>
 
-  <!-- Habit Slips -->
+  <!-- Habit Tracker -->
   <div class="card">
-    <h3>Habit Breaking</h3>
-    <button class="danger" onclick="addHabitSlip()">Mark Habit Slip</button>
+    <h3>Habit Tracker (Persistent)</h3>
+    <div id="habitList" class="habit-container"></div>
+    <input type="text" id="newHabit" placeholder="Add new habit">
+    <button class="secondary" onclick="addHabit()">Add Habit</button>
   </div>
 
   <!-- Timers -->
@@ -97,26 +94,12 @@
     <button class="secondary" onclick="stopImpactTimer()">Stop Impact</button>
   </div>
 
-  <!-- Charts -->
-  <div class="card">
-    <h3>Charts</h3>
-    <canvas id="dailyChart" width="400" height="200"></canvas>
-    <canvas id="weeklyChart" width="400" height="200"></canvas>
-  </div>
-
-  <!-- Levels & Streak -->
-  <div class="card">
-    <h3>Levels & Streak</h3>
-    <p>Current Level: <span id="level">1</span></p>
-    <p>Level-Up Streak: <span id="streak">0</span> weeks</p>
-  </div>
-
   <button class="primary" onclick="logout()">Logout</button>
 </div>
 
 <script>
 window.onload = function() {
-  const firebaseConfig = {
+const firebaseConfig = {
     apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
     authDomain: "growth-tracker-a367c.firebaseapp.com",
     projectId: "growth-tracker-a367c",
@@ -124,129 +107,188 @@ window.onload = function() {
     messagingSenderId: "277469925642",
     appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
     measurementId: "G-DPYPWBMHLB"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  let currentUser=null;
-  let jobInterval, impactInterval, jobMinutes=0, impactMinutes=0;
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-  auth.onAuthStateChanged(user => {
-    if(user){
-      currentUser=user;
-      document.getElementById('loginDiv').style.display='none';
-      document.getElementById('appDiv').style.display='block';
-      loadDailyTracker();
-    } else {
-      currentUser=null;
-      document.getElementById('loginDiv').style.display='block';
-      document.getElementById('appDiv').style.display='none';
+let currentUser=null;
+let jobInterval, impactInterval, jobMinutes=0, impactMinutes=0;
+let dailyTasks = {}; // temporary daily tasks for current day
+
+// ------------------- AUTH -------------------
+auth.onAuthStateChanged(user=>{
+  if(user){
+    currentUser=user;
+    document.getElementById('loginDiv').style.display='none';
+    document.getElementById('appDiv').style.display='block';
+    loadDailyTracker();
+    loadTasks();
+    loadHabits();
+  }else{
+    currentUser=null;
+    document.getElementById('loginDiv').style.display='block';
+    document.getElementById('appDiv').style.display='none';
+  }
+});
+
+window.login = function(){ auth.signInWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert);}
+window.signup = function(){ auth.createUserWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert);}
+window.googleLogin = function(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert);}
+window.logout = function(){ auth.signOut();}
+
+// ------------------- DAILY TRACKER -------------------
+function calculateScore(data={}) {
+  let score=0;
+  score+=data.prayer?1:0;
+  score+=data.mindset?1:0;
+  score+=data.prioritize?1:0;
+  score+=data.visualize?1:0;
+  score+=data.exercise?3:0;
+  score+=data.tracking?3:0;
+  score-=data.habitSlips||0;
+  score+=data.jobHours||0;
+  score+= (data.impactHours||0)*3;
+  return score;
+}
+
+function loadDailyTracker() {
+  const tbody=document.querySelector("#dailyTracker tbody");
+  db.collection("daily").where("uid","==",currentUser.uid).orderBy("date")
+    .onSnapshot(snapshot=>{
+      tbody.innerHTML="";
+      snapshot.forEach(doc=>{
+        const data=doc.data();
+        const row=document.createElement("tr");
+        row.innerHTML=`
+          <td>${data.date}</td>
+          <td><input type="checkbox" ${data.prayer?"checked":""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
+          <td><input type="checkbox" ${data.mindset?"checked":""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
+          <td>${data.prioritize?'<span style="color:green;">✔</span>':''}</td>
+          <td><input type="checkbox" ${data.visualize?"checked":""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
+          <td><input type="checkbox" ${data.exercise?"checked":""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
+          <td><input type="checkbox" ${data.tracking?"checked":""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
+          <td>${data.habitSlips||0}</td>
+          <td>${data.jobHours||0}</td>
+          <td>${data.impactHours||0}</td>
+          <td>${calculateScore(data)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    });
+}
+
+window.updateCheckbox=function(el,field,date){
+  db.collection("daily").doc(`${currentUser.uid}_${date}`).set({[field]:el.checked, uid:currentUser.uid, date:date},{merge:true});
+}
+
+window.addDay=function(){
+  const today=new Date().toISOString().split("T")[0];
+  const docRef=db.collection("daily").doc(`${currentUser.uid}_${today}`);
+  docRef.get().then(doc=>{
+    if(doc.exists){ alert("Today's row already exists!"); return; }
+    docRef.set({uid:currentUser.uid,date:today,prayer:false,mindset:false,prioritize:false,visualize:false,exercise:false,tracking:false,habitSlips:0,jobHours:0,impactHours:0});
+  });
+}
+
+// ------------------- DAILY TASKS -------------------
+function loadTasks(){
+  dailyTasks={};
+  document.getElementById("taskInputs").innerHTML="";
+}
+
+window.addTask=function(){
+  const taskName=document.getElementById("newTask").value.trim();
+  if(!taskName) return;
+  dailyTasks[taskName]=false;
+  renderTasks();
+  document.getElementById("newTask").value="";
+}
+
+function renderTasks(){
+  const container=document.getElementById("taskInputs");
+  container.innerHTML="";
+  const today=new Date().toISOString().split("T")[0];
+  Object.keys(dailyTasks).forEach(name=>{
+    const div=document.createElement("div");
+    const checked=dailyTasks[name]?'checked':'';
+    div.innerHTML=`<input type="checkbox" ${checked} onchange="toggleTask('${name}')"> ${name}`;
+    container.appendChild(div);
+  });
+  // Update prioritize column
+  const allChecked=Object.values(dailyTasks).every(v=>v);
+  db.collection("daily").doc(`${currentUser.uid}_${today}`).set({prioritize:allChecked},{merge:true});
+}
+
+window.toggleTask=function(name){
+  dailyTasks[name]=!dailyTasks[name];
+  renderTasks();
+}
+
+// ------------------- HABITS -------------------
+function loadHabits(){
+  const habitList=document.getElementById("habitList");
+  habitList.innerHTML="";
+  db.collection("users").doc(currentUser.uid).get().then(doc=>{
+    if(doc.exists){
+      const habits=doc.data().habits||{};
+      Object.keys(habits).forEach(name=>{
+        renderHabit(name, habits[name]);
+      });
     }
   });
+}
 
-  window.login = function(){ auth.signInWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert); }
-  window.signup = function(){ auth.createUserWithEmailAndPassword(document.getElementById('email').value,document.getElementById('password').value).catch(alert); }
-  window.googleLogin = function(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert); }
-  window.logout = function(){ auth.signOut(); }
+function renderHabit(name,data){
+  const habitList=document.getElementById("habitList");
+  const div=document.createElement("div");
+  const lastSlip=new Date(data.lastSlip);
+  const today=new Date();
+  const diff=Math.floor((today-lastSlip)/(1000*60*60*24));
+  div.id="habit_"+name;
+  div.innerHTML=`
+    <span>${name} (Days since last slip: ${diff}) </span>
+    <button class="danger" onclick="markSlip('${name}')">Mark Slip</button>
+    <button class="secondary" onclick="deleteHabit('${name}')">Delete</button>
+  `;
+  habitList.appendChild(div);
+}
 
-  function calculateScore(data={}) {
-    let score=0;
-    score+=data.prayer?1:0;
-    score+=data.mindset?1:0;
-    score+=data.prioritize?1:0;
-    score+=data.visualize?1:0;
-    score+=data.exercise?3:0;
-    score+=data.tracking?3:0;
-    score-=data.habitSlips||0;
-    score+=data.jobHours||0;
-    score+= (data.impactHours||0)*3;
-    return score;
-  }
+window.addHabit=function(){
+  const name=document.getElementById("newHabit").value.trim();
+  if(!name) return;
+  const docRef=db.collection("users").doc(currentUser.uid);
+  docRef.set({habits:{[name]:{lastSlip:new Date().toISOString(),slipsCount:0}}},{merge:true}).then(()=>{ renderHabit(name,{lastSlip:new Date().toISOString(),slipsCount:0}); });
+  document.getElementById("newHabit").value="";
+}
 
-  // Real-time table listener
-  function loadDailyTracker() {
-    const tbody = document.querySelector("#dailyTracker tbody");
-    db.collection("daily").where("uid","==",currentUser.uid).orderBy("date")
-      .onSnapshot(snapshot=>{
-        tbody.innerHTML="";
-        snapshot.forEach(doc=>{
-          const data=doc.data();
-          const row=document.createElement("tr");
-          row.innerHTML=`
-            <td>${data.date}</td>
-            <td><input type="checkbox" ${data.prayer?"checked":""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
-            <td><input type="checkbox" ${data.mindset?"checked":""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
-            <td><input type="checkbox" ${data.prioritize?"checked":""} onclick="updateCheckbox(this,'prioritize','${data.date}')"></td>
-            <td><input type="checkbox" ${data.visualize?"checked":""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
-            <td><input type="checkbox" ${data.exercise?"checked":""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
-            <td><input type="checkbox" ${data.tracking?"checked":""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
-            <td>${data.habitSlips||0}</td>
-            <td>${data.jobHours||0}</td>
-            <td>${data.impactHours||0}</td>
-            <td>${calculateScore(data)}</td>
-          `;
-          tbody.appendChild(row);
-        });
-      });
-  }
-
-  window.updateCheckbox=function(el,field,date){
-    db.collection("daily").doc(`${currentUser.uid}_${date}`).set({[field]:el.checked, uid:currentUser.uid, date:date},{merge:true});
-  }
-
-  window.addDay=function(){
-    const today=new Date().toISOString().split("T")[0];
-    const docRef=db.collection("daily").doc(`${currentUser.uid}_${today}`);
-    docRef.get().then(doc=>{
-      if(doc.exists){ alert("Today's row already exists!"); }
-      else{
-        docRef.set({uid:currentUser.uid,date:today,prayer:false,mindset:false,prioritize:false,visualize:false,exercise:false,tracking:false,habitSlips:0,jobHours:0,impactHours:0});
-      }
-    });
-  }
-
-  window.addHabitSlip=function(){
-    const today=new Date().toISOString().split("T")[0];
-    const docRef=db.collection("daily").doc(`${currentUser.uid}_${today}`);
-    docRef.get().then(doc=>{
-      if(!doc.exists){ alert("Add today first!"); return; }
-      let slips=doc.data().habitSlips||0; slips++;
-      docRef.set({habitSlips:slips},{merge:true});
-    });
-  }
-
-  window.startJobTimer=function(){
-    clearInterval(jobInterval);
-    jobInterval=setInterval(()=>{
-      jobMinutes++;
-      document.getElementById("jobTimer").innerText=jobMinutes;
-      updateTimer('jobHours',jobMinutes);
-    },60000);
-  }
-
-  window.stopJobTimer=function(){ clearInterval(jobInterval); }
-  window.startImpactTimer=function(){
-    clearInterval(impactInterval);
-    impactInterval=setInterval(()=>{
-      impactMinutes++;
-      document.getElementById("impactTimer").innerText=impactMinutes;
-      updateTimer('impactHours',impactMinutes);
-    },60000);
-  }
-  window.stopImpactTimer=function(){ clearInterval(impactInterval); }
-
-  function updateTimer(field,value){
-    const today=new Date().toISOString().split("T")[0];
-    db.collection("daily").doc(`${currentUser.uid}_${today}`).set({[field]:value},{merge:true});
-  }
-
-  document.querySelectorAll(".taskCheckbox").forEach(cb=>{
-    cb.addEventListener("change", ()=>{
-      const allChecked=[...document.querySelectorAll(".taskCheckbox")].every(c=>c.checked);
-      const today=new Date().toISOString().split("T")[0];
-      db.collection("daily").doc(`${currentUser.uid}_${today}`).set({prioritize:allChecked},{merge:true});
-    });
+window.markSlip=function(name){
+  const docRef=db.collection("users").doc(currentUser.uid);
+  docRef.get().then(doc=>{
+    const habits=doc.data().habits;
+    habits[name].lastSlip=new Date().toISOString();
+    habits[name].slipsCount+=1;
+    docRef.set({habits:habits},{merge:true});
+    renderHabit(name,habits[name]);
   });
+}
+
+window.deleteHabit=function(name){
+  const docRef=db.collection("users").doc(currentUser.uid);
+  docRef.get().then(doc=>{
+    const habits=doc.data().habits;
+    delete habits[name];
+    docRef.set({habits:habits},{merge:true});
+    document.getElementById("habit_"+name).remove();
+  });
+}
+
+// ------------------- TIMERS -------------------
+window.startJobTimer=function(){ clearInterval(jobInterval); jobInterval=setInterval(()=>{ jobMinutes++; document.getElementById("jobTimer").innerText=jobMinutes; updateTimer('jobHours',jobMinutes); },60000);}
+window.stopJobTimer=function(){ clearInterval(jobInterval);}
+window.startImpactTimer=function(){ clearInterval(impactInterval); impactInterval=setInterval(()=>{ impactMinutes++; document.getElementById("impactTimer").innerText=impactMinutes; updateTimer('impactHours',impactMinutes); },60000);}
+window.stopImpactTimer=function(){ clearInterval(impactInterval);}
+function updateTimer(field,value){ const today=new Date().toISOString().split("T")[0]; db.collection("daily").doc(`${currentUser.uid}_${today}`).set({[field]:value},{merge:true}); }
 
 };
 </script>
