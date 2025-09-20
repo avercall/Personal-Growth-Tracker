@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Personal Growth Tracker</title>
+  <title>Personal Growth Tracker - Test Mode</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f9fafb; color: #333; }
     h1,h2 { color:#222; }
@@ -13,52 +13,39 @@
     textarea,input { width:100%; padding:8px; margin:8px 0; border-radius:6px; border:1px solid #ccc; }
     ul { list-style:none; padding:0; }
     li { background:#f3f4f6; margin:5px 0; padding:10px; border-radius:6px; }
-    .hidden { display:none; }
-    #userEmail { font-weight:bold; }
     .timer { font-size:1.5rem; font-weight:bold; margin:10px 0; }
   </style>
 </head>
 <body>
-  <h1>🌱 Personal Growth Tracker</h1>
+  <h1>🌱 Personal Growth Tracker - Test Mode</h1>
 
-  <div id="auth">
-    <button id="loginBtn">Sign in with Google</button>
-    <button id="logoutBtn" class="hidden">Sign Out</button>
-    <span id="userEmail"></span>
-  </div>
+  <section>
+    <h2>⏱ Job Hours</h2>
+    <p id="timer" class="timer">00:00:00</p>
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+    <button id="logBtn">Log</button>
+    <ul id="logList"></ul>
+  </section>
 
-  <div id="app" class="hidden">
+  <section>
+    <h2>✨ Magic Questions</h2>
+    <button id="generateBtn">Generate ✨</button>
+    <p id="question"></p>
+  </section>
 
-    <section>
-      <h2>⏱ Job Hours</h2>
-      <p id="timer" class="timer">00:00:00</p>
-      <button id="startBtn">Start</button>
-      <button id="stopBtn">Stop</button>
-      <button id="logBtn">Log</button>
-      <ul id="logList"></ul>
-    </section>
+  <section>
+    <h2>📓 Daily Reflection</h2>
+    <textarea id="reflection" placeholder="Write your reflection..."></textarea>
+    <button id="saveReflection">Save Reflection</button>
+    <ul id="reflectionList"></ul>
+  </section>
 
-    <section>
-      <h2>✨ Magic Questions</h2>
-      <button id="generateBtn">Generate ✨</button>
-      <p id="question"></p>
-    </section>
-
-    <section>
-      <h2>📓 Daily Reflection</h2>
-      <textarea id="reflection" placeholder="Write your reflection..."></textarea>
-      <button id="saveReflection">Save Reflection</button>
-      <ul id="reflectionList"></ul>
-    </section>
-
-  </div>
-
-  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, query, where, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
 
+    // --- Firebase Config ---
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -70,70 +57,41 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth();
 
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const userEmailSpan = document.getElementById("userEmail");
-    const appDiv = document.getElementById("app");
-
-    loginBtn.onclick = () => { signInWithPopup(auth, new GoogleAuthProvider()); };
-    logoutBtn.onclick = () => signOut(auth);
-
-    let timerInterval, startTime;
-
+    // --- Timer ---
+    let timerInterval;
+    let startTime;
     const timerDisplay = document.getElementById("timer");
     const logList = document.getElementById("logList");
 
-    async function loadTimer(uid){
-      const docRef = doc(db,"timers",uid);
-      const docSnap = await getDoc(docRef);
-      if(docSnap.exists()){
-        const data = docSnap.data();
-        if(data.running){
-          startTime = data.startTime.toDate().getTime();
-          startTimer();
-        }
-      }
-    }
-
-    function startTimer(){
-      clearInterval(timerInterval);
-      timerInterval = setInterval(()=>{
-        const elapsed = Date.now() - startTime;
-        const hrs = String(Math.floor(elapsed/3600000)).padStart(2,"0");
-        const mins = String(Math.floor((elapsed%3600000)/60000)).padStart(2,"0");
-        const secs = String(Math.floor((elapsed%60000)/1000)).padStart(2,"0");
-        timerDisplay.textContent = `${hrs}:${mins}:${secs}`;
-      },1000);
-    }
-
-    document.getElementById("startBtn").onclick = async () => {
-      const user = auth.currentUser;
-      if(!user) return;
+    document.getElementById("startBtn").onclick = () => {
       startTime = Date.now();
-      await setDoc(doc(db,"timers",user.uid), { startTime: new Date(), running: true });
-      startTimer();
+      timerInterval = setInterval(updateTimer, 1000);
     };
 
-    document.getElementById("stopBtn").onclick = async () => {
-      const user = auth.currentUser;
-      if(!user) return;
-      clearInterval(timerInterval);
-      const elapsed = Date.now() - startTime;
-      await setDoc(doc(db,"timers",user.uid), { startTime: new Date(), running: false });
-      addLogToPage(`Stopped timer: ${timerDisplay.textContent}`);
-    };
+    document.getElementById("stopBtn").onclick = () => clearInterval(timerInterval);
 
     document.getElementById("logBtn").onclick = async () => {
-      const user = auth.currentUser;
-      if(!user) return;
-      const entry = `Worked for ${timerDisplay.textContent}`;
+      clearInterval(timerInterval);
+      const duration = timerDisplay.textContent;
+      const entry = `Worked for ${duration}`;
       addLogToPage(entry);
-      await addDoc(collection(db,"logs"), { uid:user.uid, entry, date: new Date() });
+
+      await addDoc(collection(db, "logs"), {
+        entry,
+        date: new Date()
+      });
     };
 
-    function addLogToPage(text){
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const hrs = String(Math.floor(elapsed / 3600000)).padStart(2, "0");
+      const mins = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, "0");
+      const secs = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
+      timerDisplay.textContent = `${hrs}:${mins}:${secs}`;
+    }
+
+    function addLogToPage(text) {
       const li = document.createElement("li");
       li.textContent = text;
       logList.appendChild(li);
@@ -148,57 +106,42 @@
       "What am I proud of?"
     ];
     document.getElementById("generateBtn").onclick = () => {
-      const q = questions[Math.floor(Math.random()*questions.length)];
+      const q = questions[Math.floor(Math.random() * questions.length)];
       document.getElementById("question").textContent = q;
     };
 
     // --- Daily Reflection ---
     const reflectionInput = document.getElementById("reflection");
     const reflectionList = document.getElementById("reflectionList");
+
     document.getElementById("saveReflection").onclick = async () => {
       const text = reflectionInput.value.trim();
-      if(!text) return;
+      if (!text) return;
       addReflectionToPage(text);
-      reflectionInput.value="";
-      const user = auth.currentUser;
-      if(!user) return;
-      await addDoc(collection(db,"reflections"), { uid:user.uid, text, date:new Date() });
+      reflectionInput.value = "";
+
+      await addDoc(collection(db, "reflections"), {
+        text,
+        date: new Date()
+      });
     };
-    function addReflectionToPage(text){
+
+    function addReflectionToPage(text) {
       const li = document.createElement("li");
       li.textContent = text;
       reflectionList.appendChild(li);
     }
 
-    async function loadData(uid){
-      logList.innerHTML="";
-      reflectionList.innerHTML="";
-      await loadTimer(uid);
+    // --- Load previous data ---
+    async function loadData() {
+      const logsSnapshot = await getDocs(collection(db, "logs"));
+      logsSnapshot.forEach(doc => addLogToPage(doc.data().entry));
 
-      const logQuery = query(collection(db,"logs"),where("uid","==",uid));
-      const logsSnapshot = await getDocs(logQuery);
-      logsSnapshot.forEach(doc=>addLogToPage(doc.data().entry));
-
-      const refQuery = query(collection(db,"reflections"),where("uid","==",uid));
-      const reflectionsSnapshot = await getDocs(refQuery);
-      reflectionsSnapshot.forEach(doc=>addReflectionToPage(doc.data().text));
+      const reflectionsSnapshot = await getDocs(collection(db, "reflections"));
+      reflectionsSnapshot.forEach(doc => addReflectionToPage(doc.data().text));
     }
 
-    onAuthStateChanged(auth, async user => {
-      if(user){
-        loginBtn.classList.add("hidden");
-        logoutBtn.classList.remove("hidden");
-        userEmailSpan.textContent = user.email;
-        appDiv.classList.remove("hidden");
-        await loadData(user.uid);
-      } else {
-        loginBtn.classList.remove("hidden");
-        logoutBtn.classList.add("hidden");
-        userEmailSpan.textContent = "";
-        appDiv.classList.add("hidden");
-      }
-    });
-
+    loadData();
   </script>
 </body>
 </html>
