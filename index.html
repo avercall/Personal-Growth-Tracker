@@ -39,7 +39,7 @@
   <button class="primary" onclick="googleLogin()">Login with Google</button>
 </div>
 
-<div id="appDiv" class="hidden">
+<div id="appDiv" class="card" style="display:none;">
   <h1>Personal Growth Tracker</h1>
 
   <div class="card">
@@ -102,6 +102,8 @@
 </div>
 
 <script>
+window.onload = function() {
+
   // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
@@ -119,43 +121,28 @@
   let currentUser = null;
   let jobInterval, impactInterval;
   let jobMinutes = 0, impactMinutes = 0;
-
   let dailyChart = null;
   let weeklyChart = null;
 
   auth.onAuthStateChanged(user => {
     if (user) {
       currentUser = user;
-      document.getElementById('loginDiv').classList.add('hidden');
-      document.getElementById('appDiv').classList.remove('hidden');
+      document.getElementById('loginDiv').style.display = 'none';
+      document.getElementById('appDiv').style.display = 'block';
       loadDailyTracker();
     } else {
       currentUser = null;
-      document.getElementById('loginDiv').classList.remove('hidden');
-      document.getElementById('appDiv').classList.add('hidden');
+      document.getElementById('loginDiv').style.display = 'block';
+      document.getElementById('appDiv').style.display = 'none';
     }
   });
 
-  function login() {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    auth.signInWithEmailAndPassword(email, password).catch(alert);
-  }
-
-  function signup() {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    auth.createUserWithEmailAndPassword(email, password).catch(alert);
-  }
-
-  function googleLogin() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(alert);
-  }
-
+  function login() { auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert); }
+  function signup() { auth.createUserWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert); }
+  function googleLogin() { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert); }
   function logout() { auth.signOut(); }
 
-  // Tracker Logic
+  // Tracker, scoring, timers, charts, levels, streaks
   function loadDailyTracker() {
     const tbody = document.querySelector("#dailyTracker tbody");
     tbody.innerHTML = "";
@@ -190,10 +177,7 @@
     tbody.appendChild(row);
   }
 
-  function checkboxHTML(name, checked) {
-    return `<input type="checkbox" ${checked ? "checked" : ""} onclick="updateCheckbox(this,'${name}')">`;
-  }
-
+  function checkboxHTML(name, checked) { return `<input type="checkbox" ${checked ? "checked" : ""} onclick="updateCheckbox(this,'${name}')">`; }
   function updateCheckbox(el, field) {
     const checked = el.checked;
     const today = new Date().toISOString().split("T")[0];
@@ -216,86 +200,41 @@
   function startImpactTimer() { clearInterval(impactInterval); impactInterval = setInterval(()=>{ impactMinutes++; document.getElementById("impactTimer").innerText=impactMinutes; },60000); }
   function stopImpactTimer() { clearInterval(impactInterval); }
 
-  // Score & Levels
-  function calculateScore(data={}) {
-    let score = 0;
-    score += data.prayer?1:0;
-    score += data.mindset?1:0;
-    score += data.prioritize?1:0;
-    score += data.visualize?1:0;
-    score += data.exercise?3:0;
-    score += data.tracking?3:0;
-    score -= data.habitSlips || 0;
-    score += (data.jobHours || 0);
-    score += (data.impactHours || 0)*3;
-    return score;
-  }
+  function calculateScore(data={}) { let score=0; score+=data.prayer?1:0; score+=data.mindset?1:0; score+=data.prioritize?1:0; score+=data.visualize?1:0; score+=data.exercise?3:0; score+=data.tracking?3:0; score-=(data.habitSlips||0); score+=(data.jobHours||0); score+=(data.impactHours||0)*3; return score; }
 
   function updateWeeklyLevel(dailyData) {
-    let weekTotals = {};
-    dailyData.forEach(d=>{
-      const week = getWeekNumber(new Date(d.date));
-      if(!weekTotals[week]) weekTotals[week] = 0;
-      weekTotals[week] += d.score;
-    });
-    const todayWeek = getWeekNumber(new Date());
-    const currentWeekScore = weekTotals[todayWeek] || 0;
-    let level = 1;
-    if(currentWeekScore >= 112 && currentWeekScore <= 125) level = 2;
-    else if(currentWeekScore >= 126 && currentWeekScore <= 140) level = 3;
-    else if(currentWeekScore >= 141) level = 4;
+    let weekTotals = {}; dailyData.forEach(d=>{ const week=getWeekNumber(new Date(d.date)); if(!weekTotals[week]) weekTotals[week]=0; weekTotals[week]+=d.score; });
+    const todayWeek = getWeekNumber(new Date()); const currentWeekScore=weekTotals[todayWeek]||0;
+    let level=1; if(currentWeekScore>=112 && currentWeekScore<=125) level=2; else if(currentWeekScore>=126 && currentWeekScore<=140) level=3; else if(currentWeekScore>=141) level=4;
     document.getElementById("level").innerText = level;
 
-    let streak = 0;
-    let sortedWeeks = Object.keys(weekTotals).sort((a,b)=>a-b);
-    for(let i=sortedWeeks.length-1;i>=0;i--){
-      const score = weekTotals[sortedWeeks[i]];
-      if(score >= 112) streak++;
-      else break;
-    }
+    let streak=0; let sortedWeeks=Object.keys(weekTotals).sort((a,b)=>a-b);
+    for(let i=sortedWeeks.length-1;i>=0;i--){ if(weekTotals[sortedWeeks[i]]>=112) streak++; else break; }
     document.getElementById("streak").innerText = streak;
   }
 
-  function getWeekNumber(d) {
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-  }
+  function getWeekNumber(d) { d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const dayNum=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-dayNum); const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1)); return Math.ceil((((d-yearStart)/86400000)+1)/7); }
 
-  // Charts
   dailyChart = new Chart(document.getElementById('dailyChart'), { type:'line', data:{labels:[], datasets:[{label:'Daily Score',data:[],borderColor:'blue',fill:false}]}, options:{} });
   weeklyChart = new Chart(document.getElementById('weeklyChart'), { type:'line', data:{labels:[], datasets:[{label:'Weekly Score',data:[],borderColor:'green',fill:false}]}, options:{} });
 
   function updateCharts(dailyData) {
-    const dates = dailyData.map(d=>d.date);
-    const scores = dailyData.map(d=>d.score);
-    dailyChart.data.labels = dates;
-    dailyChart.data.datasets[0].data = scores;
-    dailyChart.update();
-
-    let weeklyTotals = {};
-    dailyData.forEach(d=>{
-      const week = getWeekNumber(new Date(d.date));
-      if(!weeklyTotals[week]) weeklyTotals[week]=0;
-      weeklyTotals[week]+=d.score;
-    });
-    const weekLabels = Object.keys(weeklyTotals).sort();
-    const weekScores = weekLabels.map(w=>weeklyTotals[w]);
-    weeklyChart.data.labels = weekLabels;
-    weeklyChart.data.datasets[0].data = weekScores;
-    weeklyChart.update();
+    const dates = dailyData.map(d=>d.date); const scores = dailyData.map(d=>d.score);
+    dailyChart.data.labels=dates; dailyChart.data.datasets[0].data=scores; dailyChart.update();
+    let weeklyTotals={}; dailyData.forEach(d=>{ const week=getWeekNumber(new Date(d.date)); if(!weeklyTotals[week]) weeklyTotals[week]=0; weeklyTotals[week]+=d.score; });
+    const weekLabels=Object.keys(weeklyTotals).sort(); const weekScores=weekLabels.map(w=>weeklyTotals[w]);
+    weeklyChart.data.labels=weekLabels; weeklyChart.data.datasets[0].data=weekScores; weeklyChart.update();
   }
 
-  // Prioritization checkbox logic
   document.querySelectorAll(".taskCheckbox").forEach(cb=>{
     cb.addEventListener("change", ()=>{
-      const allChecked = [...document.querySelectorAll(".taskCheckbox")].every(c=>c.checked);
-      const today = new Date().toISOString().split("T")[0];
+      const allChecked=[...document.querySelectorAll(".taskCheckbox")].every(c=>c.checked);
+      const today=new Date().toISOString().split("T")[0];
       db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ prioritize: allChecked, uid: currentUser.uid, date: today }, { merge: true }).then(loadDailyTracker);
     });
   });
+
+};
 </script>
 
 </body>
