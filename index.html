@@ -175,12 +175,22 @@ function renderRow(row){
   tbody.appendChild(tr);
 }
 
-window.toggleCheck = function(date,field){
+// --- Updated toggleCheck for auto-tracking ---
+window.toggleCheck = function(date, field){
   const row = dailyRows[date];
   row[field] = !row[field];
+
+  // Automatically check 'tracking' if any checkbox except tracking itself is clicked
+  if(field !== "tracking") row.tracking = true;
+
+  // Update tracking checkbox UI
+  const tr = document.getElementById("row_" + date);
+  tr.querySelectorAll("td")[6].querySelector("input").checked = row.tracking;
+
   updateScore(date);
 };
 
+// --- Scoring & Level ---
 function updateScore(date){
   const row = dailyRows[date];
   let score = 0;
