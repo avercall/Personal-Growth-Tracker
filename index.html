@@ -1,167 +1,264 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Growth Tracker</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin: 0; padding: 0; }
-    .card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; width: 90%; max-width: 800px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h2 { margin-top: 0; color: #333; }
-    button { padding: 8px 14px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; margin: 5px; }
-    button:hover { background: #45a049; }
-    input[type="text"], input[type="email"], input[type="password"] { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 6px; width: 90%; max-width: 300px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background: #4CAF50; color: white; }
-    .habit { display: flex; justify-content: space-between; margin: 5px 0; }
-  </style>
+<meta charset="UTF-8">
+<title>Growth Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin: 0; padding: 0; }
+.card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; width: 90%; max-width: 800px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+h2 { margin-top: 0; color: #333; }
+button { padding: 8px 14px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; margin: 5px; }
+button:hover { background: #45a049; }
+input[type="text"], input[type="email"], input[type="password"] { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 6px; width: 90%; max-width: 300px; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+th { background: #4CAF50; color: white; }
+.habit { display: flex; justify-content: space-between; margin: 5px 0; }
+</style>
 </head>
 <body>
-  <div id="login-card" class="card">
-    <h2>Login</h2>
-    <input type="email" id="email" placeholder="Email"><br>
-    <input type="password" id="password" placeholder="Password"><br>
-    <button onclick="login()">Login</button>
-    <button onclick="signup()">Sign Up</button>
-  </div>
 
-  <div id="app" style="display:none;">
-    <div class="card">
-      <h2>Daily Tracker</h2>
-      <button onclick="addDay()">Add Day</button>
-      <table id="dailyTable">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Prayer</th>
-            <th>Mindset</th>
-            <th>Prioritize</th>
-            <th>Visualize</th>
-            <th>Exercise</th>
-            <th>Tracking</th>
-            <th>Habit Slips</th>
-            <th>Job Hours</th>
-            <th>Impact Hours</th>
-            <th>Daily Score</th>
-          </tr>
-        </thead>
-        <tbody id="dailyBody"></tbody>
-      </table>
-    </div>
+<div id="login-card" class="card">
+<h2>Login / Signup</h2>
+<input type="email" id="email" placeholder="Email"><br>
+<input type="password" id="password" placeholder="Password"><br>
+<button onclick="login()">Login</button>
+<button onclick="signup()">Sign Up</button>
+</div>
 
-    <div class="card">
-      <h2>Prioritization Checklist</h2>
-      <div id="taskList"></div>
-      <button onclick="resetTasks()">Reset Tasks</button>
-    </div>
+<div id="app" style="display:none;">
 
-    <div class="card">
-      <h2>Habit Breaking</h2>
-      <input type="text" id="habitInput" placeholder="New Habit">
-      <button onclick="addHabit()">Add Habit</button>
-      <div id="habitList"></div>
-    </div>
+<div class="card">
+<h2>Daily Tracker</h2>
+<button onclick="addDay()">Add Today</button>
+<table id="dailyTable">
+<thead>
+<tr>
+<th>Date</th>
+<th>Prayer</th>
+<th>Mindset</th>
+<th>Prioritize</th>
+<th>Visualize</th>
+<th>Exercise</th>
+<th>Tracking</th>
+<th>Habit Slips</th>
+<th>Job Hours</th>
+<th>Impact Hours</th>
+<th>Daily Score</th>
+</tr>
+</thead>
+<tbody id="dailyBody"></tbody>
+</table>
+</div>
 
-    <div class="card">
-      <h2>Timers</h2>
-      <div>
-        <button onclick="startTimer('job')">Start Job</button>
-        <button onclick="stopTimer('job')">Stop Job</button>
-        <span id="jobTime">0h</span>
-      </div>
-      <div>
-        <button onclick="startTimer('impact')">Start Impact</button>
-        <button onclick="stopTimer('impact')">Stop Impact</button>
-        <span id="impactTime">0h</span>
-      </div>
-    </div>
+<div class="card">
+<h2>Prioritization Checklist</h2>
+<div id="taskList"></div>
+<input type="text" id="taskInput" placeholder="New Task">
+<button onclick="addTask()">Add Task</button>
+<button onclick="resetTasks()">Reset Tasks</button>
+</div>
 
-    <div class="card">
-      <h2>Levels & Weekly Progress</h2>
-      <p id="levelDisplay">Level: 1</p>
-      <p id="weeklyScore">Weekly Score: 0</p>
-      <p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
-    </div>
-  </div>
+<div class="card">
+<h2>Habit Breaking</h2>
+<input type="text" id="habitInput" placeholder="New Habit">
+<button onclick="addHabit()">Add Habit</button>
+<div id="habitList"></div>
+</div>
+
+<div class="card">
+<h2>Timers</h2>
+<div>
+<button onclick="startTimer('job')">Start Job</button>
+<button onclick="stopTimer('job')">Stop Job</button>
+<span id="jobTime">0h</span>
+</div>
+<div>
+<button onclick="startTimer('impact')">Start Impact</button>
+<button onclick="stopTimer('impact')">Stop Impact</button>
+<span id="impactTime">0h</span>
+</div>
+</div>
+
+<div class="card">
+<h2>Levels & Weekly Progress</h2>
+<p id="levelDisplay">Level: 1</p>
+<p id="weeklyScore">Weekly Score: 0</p>
+<p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
+</div>
+
+</div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-    authDomain: "growth-tracker-a367c.firebaseapp.com",
-    projectId: "growth-tracker-a367c",
-    storageBucket: "growth-tracker-a367c.firebasestorage.app",
-    messagingSenderId: "277469925642",
-    appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-    measurementId: "G-DPYPWBMHLB"
-  };
+const firebaseConfig = {
+apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+authDomain: "growth-tracker-a367c.firebaseapp.com",
+projectId: "growth-tracker-a367c",
+storageBucket: "growth-tracker-a367c.firebasestorage.app",
+messagingSenderId: "277469925642",
+appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+measurementId: "G-DPYPWBMHLB"
+};
 
-  const appFirebase = initializeApp(firebaseConfig);
-  const auth = getAuth(appFirebase);
-  const db = getFirestore(appFirebase);
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
 
-  const loginCard = document.getElementById("login-card");
-  const appDiv = document.getElementById("app");
+const loginCard = document.getElementById("login-card");
+const appDiv = document.getElementById("app");
 
-  async function login() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    try { await signInWithEmailAndPassword(auth, email, password); }
-    catch(e){ alert(e.message); }
-  }
-  async function signup() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    try { await createUserWithEmailAndPassword(auth, email, password); }
-    catch(e){ alert(e.message); }
-  }
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  try { await signInWithEmailAndPassword(auth,email,password); }
+  catch(e){ alert(e.message); }
+}
 
-  onAuthStateChanged(auth, user => {
-    if(user){ loginCard.style.display="none"; appDiv.style.display="block"; }
-    else{ loginCard.style.display="block"; appDiv.style.display="none"; }
+async function signup() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  try { await createUserWithEmailAndPassword(auth,email,password); }
+  catch(e){ alert(e.message); }
+}
+
+// Expose globally
+window.login = login;
+window.signup = signup;
+
+// Show app after login
+onAuthStateChanged(auth,user=>{
+  if(user){ loginCard.style.display="none"; appDiv.style.display="block"; }
+  else{ loginCard.style.display="block"; appDiv.style.display="none"; }
+});
+
+// --- Daily Tracker + Scoring + Levels ---
+let weeklyPoints=0, currentLevel=1, streak=0;
+let dailyRows={};
+let jobMinutes=0, impactMinutes=0, jobInterval, impactInterval;
+
+// Add today row
+function addDay(){
+  const today = new Date().toISOString().split("T")[0];
+  if(dailyRows[today]){ alert("Today's row already exists"); return; }
+  const row = { date: today, prayer:false, mindset:false, prioritize:false, visualize:false, exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0 };
+  dailyRows[today]=row;
+  renderRow(row);
+}
+
+// Render a row in table
+function renderRow(row){
+  const tbody = document.getElementById("dailyBody");
+  const tr = document.createElement("tr");
+  tr.id = "row_"+row.date;
+  tr.innerHTML = `<td>${row.date}</td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','prayer')"></td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','mindset')"></td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','prioritize')"></td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','visualize')"></td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','exercise')"></td>
+<td><input type="checkbox" onchange="toggleCheck('${row.date}','tracking')"></td>
+<td id="habitSlips_${row.date}">0</td>
+<td id="jobHours_${row.date}">0</td>
+<td id="impactHours_${row.date}">0</td>
+<td id="dailyScore_${row.date}">0</td>`;
+  tbody.appendChild(tr);
+}
+
+// Toggle checkbox
+window.toggleCheck = function(date,field){
+  const row = dailyRows[date];
+  row[field] = !row[field];
+  updateScore(date);
+}
+
+// Update score and levels
+function updateScore(date){
+  const row = dailyRows[date];
+  let score=0;
+  if(row.prayer) score+=1;
+  if(row.mindset) score+=1;
+  if(row.prioritize) score+=1;
+  if(row.visualize) score+=1;
+  if(row.exercise) score+=3;
+  if(row.tracking) score+=3;
+  score -= row.habitSlips;
+  score += row.jobHours;
+  score += row.impactHours*3;
+  document.getElementById("dailyScore_"+date).innerText = score;
+
+  // Weekly points
+  weeklyPoints=0;
+  for(const d in dailyRows){ weeklyPoints+=calculateScore(dailyRows[d]); }
+  document.getElementById("weeklyScore").innerText = "Weekly Score: "+weeklyPoints;
+
+  // Level system
+  let nextMin=0,nextMax=0;
+  if(currentLevel===1){nextMin=112;nextMax=125;}
+  if(currentLevel===2){nextMin=126;nextMax=140;}
+  if(currentLevel===3){nextMin=141;nextMax=170;}
+  if(weeklyPoints>=nextMin && weeklyPoints<=nextMax){ streak++; if(streak>=4){currentLevel++; streak=0;} }
+  else{ streak=0; }
+  document.getElementById("levelDisplay").innerText = "Level: "+currentLevel;
+  document.getElementById("streakDisplay").innerText = "Progress Toward Next Level: "+streak+"/4 weeks";
+}
+
+// Simple scoring helper
+function calculateScore(row){ return row.prayer+row.mindset+row.prioritize+row.visualize+row.exercise*3+row.tracking*3-row.habitSlips+row.jobHours+row.impactHours*3; }
+
+// --- Timers ---
+function startTimer(type){
+  if(type==="job" && !jobInterval){ jobInterval=setInterval(()=>{jobMinutes++; document.getElementById("jobTime").innerText=Math.floor(jobMinutes/60)+"h"; }); }
+  if(type==="impact" && !impactInterval){ impactInterval=setInterval(()=>{impactMinutes++; document.getElementById("impactTime").innerText=Math.floor(impactMinutes/60)+"h"; }); }
+}
+function stopTimer(type){
+  if(type==="job"){ clearInterval(jobInterval); jobInterval=null; dailyRows[Object.keys(dailyRows).slice(-1)[0]].jobHours=Math.floor(jobMinutes/60); updateScore(Object.keys(dailyRows).slice(-1)[0]); }
+  if(type==="impact"){ clearInterval(impactInterval); impactInterval=null; dailyRows[Object.keys(dailyRows).slice(-1)[0]].impactHours=Math.floor(impactMinutes/60); updateScore(Object.keys(dailyRows).slice(-1)[0]); }
+}
+
+// --- Tasks ---
+let tasks=[];
+function addTask(){ const val=document.getElementById("taskInput").value; if(val){tasks.push(val); renderTasks(); document.getElementById("taskInput").value=""; } }
+function resetTasks(){tasks=[]; renderTasks();}
+function renderTasks(){ const div=document.getElementById("taskList"); div.innerHTML=""; tasks.forEach(t=>{ const cb=document.createElement("input"); cb.type="checkbox"; cb.onclick=()=>updatePrioritize(); div.appendChild(cb); div.appendChild(document.createTextNode(t)); div.appendChild(document.createElement("br")); }); }
+function updatePrioritize(){
+  const allChecked = Array.from(document.getElementById("taskList").querySelectorAll("input[type=checkbox]")).every(c=>c.checked);
+  const lastDate=Object.keys(dailyRows).slice(-1)[0];
+  if(lastDate){ dailyRows[lastDate].prioritize=allChecked; document.getElementById("row_"+lastDate).querySelectorAll("td")[3].querySelector("input").checked=allChecked; updateScore(lastDate); }
+}
+
+// --- Habits ---
+let habits=[];
+function addHabit(){
+  const val=document.getElementById("habitInput").value;
+  if(!val) return;
+  habits.push({name:val,daysSinceLastSlip:0,slips:0});
+  renderHabits(); document.getElementById("habitInput").value="";
+}
+function deleteHabit(idx){ habits.splice(idx,1); renderHabits(); }
+function slipHabit(idx){
+  habits[idx].slips++;
+  habits[idx].daysSinceLastSlip=0;
+  const lastDate=Object.keys(dailyRows).slice(-1)[0];
+  if(lastDate){ dailyRows[lastDate].habitSlips++; updateScore(lastDate); }
+  renderHabits();
+}
+function renderHabits(){
+  const div=document.getElementById("habitList");
+  div.innerHTML="";
+  habits.forEach((h,i)=>{
+    const d=document.createElement("div"); d.className="habit";
+    d.innerHTML=`${h.name} - Days since last slip: ${h.daysSinceLastSlip} <button onclick="slipHabit(${i})">Slip</button> <button onclick="deleteHabit(${i})">Delete</button>`;
+    div.appendChild(d);
+    h.daysSinceLastSlip++;
   });
-
-  // --- Scoring & Levels ---
-  let weeklyPoints = 0, currentLevel = 1, streak = 0;
-
-  function calculateScore(row){
-    let score = 0;
-    if(row.prayer) score += 1;
-    if(row.mindset) score += 1;
-    if(row.prioritize) score += 1;
-    if(row.visualize) score += 1;
-    if(row.exercise) score += 3;
-    if(row.tracking) score += 3;
-    score -= row.habitSlips;
-    score += row.jobHours;
-    score += row.impactHours*3;
-    return score;
-  }
-
-  function updateLevelSystem(){
-    document.getElementById("weeklyScore").innerText = "Weekly Score: " + weeklyPoints;
-    let nextRangeMin = 0, nextRangeMax = 0;
-    if(currentLevel===1){ nextRangeMin=112; nextRangeMax=125; }
-    if(currentLevel===2){ nextRangeMin=126; nextRangeMax=140; }
-    if(currentLevel===3){ nextRangeMin=141; nextRangeMax=170; }
-    if(weeklyPoints>=nextRangeMin && weeklyPoints<=nextRangeMax){
-      streak++;
-      if(streak>=4){ currentLevel++; streak=0; }
-    } else {
-      streak=0;
-    }
-    document.getElementById("levelDisplay").innerText = "Level: " + currentLevel;
-    document.getElementById("streakDisplay").innerText = "Progress Toward Next Level: " + streak + "/4 weeks";
-  }
-
-  // TODO: integrate addDay, habits, timers with Firestore (Step 4 onwards)
+}
 </script>
 </body>
 </html>
