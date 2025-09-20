@@ -21,6 +21,8 @@
         input[type="number"] { -moz-appearance: textfield; text-align: center; }
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        table { width: 100%; }
+        th, td { text-align: center; }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -30,26 +32,7 @@
     <!-- Daily Tracker Section -->
     <div class="card mb-6">
         <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">Daily Tracker</h2>
-        <div id="tracker-table-container" class="overflow-x-auto">
-            <table id="tracker-table" class="w-full table-auto border-collapse">
-                <thead>
-                    <tr class="bg-gray-200">
-                        <th class="border px-2 py-1">Date</th>
-                        <th class="border px-2 py-1">Prayer</th>
-                        <th class="border px-2 py-1">Mindset</th>
-                        <th class="border px-2 py-1">Prioritize</th>
-                        <th class="border px-2 py-1">Visualize</th>
-                        <th class="border px-2 py-1">Exercise</th>
-                        <th class="border px-2 py-1">Tracking</th>
-                        <th class="border px-2 py-1">Habit Slips</th>
-                        <th class="border px-2 py-1">Job Hours</th>
-                        <th class="border px-2 py-1">Impact Hours</th>
-                        <th class="border px-2 py-1">Daily Score</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+        <div id="tracker-table-container" class="overflow-x-auto"></div>
         <div class="mt-4 text-center">
             <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 active:scale-95 transition duration-300">Add Day</button>
         </div>
@@ -125,11 +108,18 @@
         </div>
     </div>
 
-    <!-- Progress Chart -->
+    <!-- Progress Charts -->
     <div class="card mt-6 mb-6">
-        <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Progress Chart</h2>
-        <div class="mx-auto max-w-xl">
-            <canvas id="progressChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+        <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Progress Charts</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-lg font-bold text-gray-700 mb-2 text-center">Daily Points</h3>
+                <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-gray-700 mb-2 text-center">Weekly Points</h3>
+                <canvas id="weeklyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+            </div>
         </div>
     </div>
 
@@ -159,99 +149,33 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ==== Timer Logic ====
+    let jobTimer=0, impactTimer=0, jobInterval, impactInterval;
+    const jobDisplay = document.getElementById('job-timer-display');
+    const impactDisplay = document.getElementById('impact-timer-display');
 
-    // ==========================
-    // Daily Tracker Logic
-    // ==========================
-    const trackerTableBody = document.querySelector('#tracker-table tbody');
-    const addDayBtn = document.getElementById('add-day-btn');
+    function formatTime(sec){const h=String(Math.floor(sec/3600)).padStart(2,'0');const m=String(Math.floor((sec%3600)/60)).padStart(2,'0');const s=String(sec%60).padStart(2,'0');return `${h}:${m}:${s}`;}
+    function startTimer(type){if(type==='job') jobInterval=setInterval(()=>{jobTimer++;jobDisplay.textContent=formatTime(jobTimer)},1000); else impactInterval=setInterval(()=>{impactTimer++;impactDisplay.textContent=formatTime(impactTimer)},1000);}
+    function stopTimer(type){if(type==='job') clearInterval(jobInterval); else clearInterval(impactInterval);}
+    function logTimer(type){if(type==='job'){alert(`Logged ${formatTime(jobTimer)} job hours`); jobTimer=0; jobDisplay.textContent=formatTime(0);} else {alert(`Logged ${formatTime(impactTimer)} impact hours`); impactTimer=0; impactDisplay.textContent=formatTime(0);}}
 
-    function calculateDailyScore(row) {
-        const cells = row.cells;
-        let score = 0;
-        // Prayer, Mindset, Prioritize, Visualize checkboxes = 1 point
-        for(let i=1;i<=4;i++){
-            if(cells[i].querySelector('input[type="checkbox"]').checked) score += 1;
-        }
-        // Exercise & Tracking checkboxes = 3 points
-        for(let i=5;i<=6;i++){
-            if(cells[i].querySelector('input[type="checkbox"]').checked) score +=3;
-        }
-        // Habit Slips = minus 1 point each
-        const habitSlips = parseInt(cells[7].querySelector('input').value)||0;
-        score -= habitSlips;
-        // Job Hours = +1 per hour
-        const jobHours = parseInt(cells[8].querySelector('input').value)||0;
-        score += jobHours;
-        // Impact Hours = +3 per hour
-        const impactHours = parseInt(cells[9].querySelector('input').value)||0;
-        score += impactHours;
+    document.getElementById('job-start-btn').addEventListener('click',()=>startTimer('job'));
+    document.getElementById('job-stop-btn').addEventListener('click',()=>stopTimer('job'));
+    document.getElementById('job-log-btn').addEventListener('click',()=>logTimer('job'));
+    document.getElementById('impact-start-btn').addEventListener('click',()=>startTimer('impact'));
+    document.getElementById('impact-stop-btn').addEventListener('click',()=>stopTimer('impact'));
+    document.getElementById('impact-log-btn').addEventListener('click',()=>logTimer('impact'));
 
-        cells[10].textContent = score;
-        return score;
-    }
-
-    function addDayRow() {
-        const row = trackerTableBody.insertRow();
-        const today = new Date().toISOString().split('T')[0];
-        row.innerHTML = `
-            <td class="border px-2 py-1">${today}</td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox" class="prioritize-checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="checkbox" class="tracking-checkbox"></td>
-            <td class="border px-2 py-1 text-center"><input type="number" value="0" min="0"></td>
-            <td class="border px-2 py-1 text-center"><input type="number" value="0" min="0"></td>
-            <td class="border px-2 py-1 text-center"><input type="number" value="0" min="0"></td>
-            <td class="border px-2 py-1 text-center">0</td>
-        `;
-
-        const checkboxes = row.querySelectorAll('input[type="checkbox"]');
-        const numericInputs = row.querySelectorAll('input[type="number"]');
-
-        checkboxes.forEach(box => {
-            box.addEventListener('change', ()=>{
-                // Any checkbox marked automatically checks tracking
-                row.querySelector('.tracking-checkbox').checked = true;
-                calculateDailyScore(row);
-            });
-        });
-
-        numericInputs.forEach(input=>{
-            input.addEventListener('input', ()=>calculateDailyScore(row));
-        });
-    }
-
-    addDayBtn.addEventListener('click', addDayRow);
-
-    // ==========================
-    // Prioritization Checklist Logic
-    // ==========================
-    const taskCheckboxes = document.querySelectorAll('.task-checkbox');
-    taskCheckboxes.forEach(box=>{
-        box.addEventListener('change', ()=>{
-            // If all 3 tasks checked, auto check prioritize in last day row
-            const allChecked = Array.from(taskCheckboxes).every(c=>c.checked);
-            const lastRow = trackerTableBody.rows[trackerTableBody.rows.length-1];
-            if(lastRow) lastRow.querySelector('.prioritize-checkbox').checked = allChecked;
-            if(lastRow) calculateDailyScore(lastRow);
-        });
-    });
-
-    // ==========================
-    // Habit Breaking Logic
-    // ==========================
+    // ==== Habit Section ====
     const habitContainer = document.getElementById('habit-breaking-container');
-    let habits = [];
+    let habits=[];
 
-    function renderHabits() {
-        habitContainer.innerHTML = '';
+    function renderHabits(){
+        habitContainer.innerHTML='';
         habits.forEach((habit,index)=>{
-            const div = document.createElement('div');
-            div.className = 'bg-gray-50 p-4 rounded-lg shadow flex flex-col items-center';
-            div.innerHTML = `
+            const div=document.createElement('div');
+            div.className='bg-gray-50 p-4 rounded-lg shadow flex flex-col items-center';
+            div.innerHTML=`
                 <input data-index="${index}" type="text" class="habit-name-input text-center border-b border-gray-300 focus:outline-none mb-2" value="${habit.name}" placeholder="Habit name"/>
                 <p>Current Streak: <span class="habit-streak" data-index="${index}">${habit.streak}</span></p>
                 <div class="flex space-x-2 mt-2">
@@ -274,84 +198,181 @@ document.addEventListener('DOMContentLoaded', () => {
 
     habitContainer.addEventListener('click',(e)=>{
         const index = e.target.dataset.index;
-        if(e.target.classList.contains('delete-habit-btn')){
-            habits.splice(index,1);
-            renderHabits();
-        }
-        if(e.target.classList.contains('habit-reset-btn')){
-            habits[index].streak=0;
-            renderHabits();
-        }
+        if(e.target.classList.contains('delete-habit-btn')){habits.splice(index,1);renderHabits();}
+        if(e.target.classList.contains('habit-reset-btn')){habits[index].streak=0;renderHabits();}
     });
 
     habitContainer.addEventListener('change',(e)=>{
         const index = e.target.dataset.index;
         if(e.target.classList.contains('habit-slip-checkbox')){
-            const lastRow = trackerTableBody.rows[trackerTableBody.rows.length-1];
-            if(lastRow) {
-                const habitCell = lastRow.cells[7].querySelector('input');
-                habitCell.value = parseInt(habitCell.value||0)+1;
-                calculateDailyScore(lastRow);
+            if(e.target.checked) habits[index].streak = 0;
+            // Also update daily tracker habit slips
+            if(dailyData.length>0){
+                dailyData[dailyData.length-1].habitSlips=habits.filter(h=>h.streak===0).length;
+                updateDailyScore(dailyData[dailyData.length-1], document.querySelector('#tracker-table-container tbody tr:last-child'));
+                updateCharts();
+                updateWeeklyTotalAndLevel();
             }
         }
-        if(e.target.classList.contains('habit-name-input')){
-            habits[index].name = e.target.value;
-        }
+        if(e.target.classList.contains('habit-name-input')){habits[index].name = e.target.value;}
     });
 
-    // ==========================
-    // Reflection / Weekly Summary
-    // ==========================
-    function generateDailyReflection() {
-        const table = trackerTableBody;
-        if (!table || table.rows.length < 1) return;
+    // ==== Reflection / Weekly Summary ====
+    document.getElementById('reflection-btn').addEventListener('click',()=>{document.getElementById('reflection-output').textContent="Reflecting on your day helps you identify wins and growth areas. ✨";});
+    document.getElementById('weekly-summary-btn').addEventListener('click',()=>{document.getElementById('weekly-summary-output').textContent="Weekly summary generated: Track streaks, hours, and impact to level up. 🌱";});
 
-        const lastRow = table.rows[table.rows.length-1];
-        const checkboxes = lastRow.querySelectorAll('input[type="checkbox"]');
-        const numericInputs = lastRow.querySelectorAll('input[type="number"]');
+    // ==== Growth Level Explanation ====
+    document.getElementById('explain-level-btn').addEventListener('click',()=>{
+        const el = document.getElementById('level-explanation');
+        el.textContent="Growth Level shows your progress based on habits, hours logged, and streaks. Keep up your consistency!";
+        el.classList.toggle('hidden');
+    });
 
-        let reflection = [];
-        checkboxes.forEach((box, idx) => {
-            if (!box.checked && idx !== 6) { // exclude tracking itself
-                const label = table.rows[0].cells[idx].textContent;
-                reflection.push(label);
-            }
+    // ==== Prioritization Checklist Logic ====
+    function checkPrioritizeAuto(tr){
+        const allTasks = document.querySelectorAll('.task-checkbox');
+        const prioritizeInput = tr.querySelector('.prioritize-checkbox');
+        if(Array.from(allTasks).every(cb=>cb.checked)){
+            prioritizeInput.checked=true;
+        }
+    }
+
+    document.querySelectorAll('.task-checkbox').forEach(cb=>{
+        cb.addEventListener('change',()=>{dailyData.length>0?checkPrioritizeAuto(document.querySelector('#tracker-table-container tbody tr:last-child')):null;});
+    });
+
+    // ==== Daily Tracker Table & Logic ====
+    const trackerContainer = document.getElementById('tracker-table-container');
+    let trackerTable;
+    let dailyData = [];
+
+    function createTrackerTable(){
+        trackerContainer.innerHTML='';
+        trackerTable=document.createElement('table');
+        trackerTable.className='min-w-full border-collapse';
+        const thead=document.createElement('thead');
+        thead.innerHTML=`
+            <tr>
+                <th class="border px-2 py-1">Date</th>
+                <th class="border px-2 py-1">Prayer</th>
+                <th class="border px-2 py-1">Mindset</th>
+                <th class="border px-2 py-1">Prioritize</th>
+                <th class="border px-2 py-1">Visualize</th>
+                <th class="border px-2 py-1">Exercise</th>
+                <th class="border px-2 py-1">Tracking</th>
+                <th class="border px-2 py-1">Habit Slips</th>
+                <th class="border px-2 py-1">Job Hours</th>
+                <th class="border px-2 py-1">Impact Hours</th>
+                <th class="border px-2 py-1">Daily Score</th>
+            </tr>
+        `;
+        trackerTable.appendChild(thead);
+        trackerTable.appendChild(document.createElement('tbody'));
+        trackerContainer.appendChild(trackerTable);
+    }
+
+    function addDayRow(){
+        const tbody=trackerTable.querySelector('tbody');
+        const today = new Date().toLocaleDateString();
+        const rowData={prayer:false,mindset:false,prioritize:false,visualize:false,exercise:false,tracking:false,habitSlips:0,jobHours:0,impactHours:0,dailyScore:0};
+        dailyData.push(rowData);
+
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+            <td class="border px-2 py-1">${today}</td>
+            <td class="border px-2 py-1"><input type="checkbox" class="daily-checkbox" data-key="prayer"></td>
+            <td class="border px-2 py-1"><input type="checkbox" class="daily-checkbox" data-key="mindset"></td>
+            <td class="border px-2 py-1"><input type="checkbox" class="prioritize-checkbox" data-key="prioritize"></td>
+            <td class="border px-2 py-1"><input type="checkbox" class="daily-checkbox" data-key="visualize"></td>
+            <td class="border px-2 py-1"><input type="checkbox" class="exercise-checkbox" data-key="exercise"></td>
+            <td class="border px-2 py-1"><input type="checkbox" class="tracking-checkbox" data-key="tracking"></td>
+            <td class="border px-2 py-1"><input type="number" min="0" value="0" class="habit-input" data-key="habitSlips"></td>
+            <td class="border px-2 py-1"><input type="number" min="0" value="0" class="number-input" data-key="jobHours"></td>
+            <td class="border px-2 py-1"><input type="number" min="0" value="0" class="number-input" data-key="impactHours"></td>
+            <td class="border px-2 py-1 daily-score-cell">0</td>
+        `;
+        tbody.appendChild(tr);
+        const rowIndex=dailyData.length-1;
+
+        tr.querySelectorAll('input').forEach(input=>{
+            input.addEventListener('change',()=>{
+                const key=input.dataset.key;
+                if(input.type==='checkbox'){rowData[key]=input.checked;} else {rowData[key]=Number(input.value);}
+                // Auto prioritize
+                const allTasks=document.querySelectorAll('.task-checkbox');
+                const prioritizeInput=tr.querySelector('.prioritize-checkbox');
+                if(Array.from(allTasks).every(cb=>cb.checked)){prioritizeInput.checked=true;rowData['prioritize']=true;}
+                // Auto tracking
+                if(input.type==='checkbox'&&!input.classList.contains('tracking-checkbox')){
+                    const anyChecked=Array.from(tr.querySelectorAll('input[type=checkbox]')).some(cb=>!cb.classList.contains('tracking-checkbox') && cb.checked);
+                    tr.querySelector('.tracking-checkbox').checked=anyChecked;
+                    rowData['tracking']=anyChecked;
+                }
+                updateDailyScore(rowData,tr);
+                updateCharts();
+                updateWeeklyTotalAndLevel();
+            });
         });
 
-        const habitSlips = parseInt(numericInputs[0].value || 0);
-        if (habitSlips > 0) reflection.push(`${habitSlips} habit slip(s)`);
-
-        document.getElementById('reflection-output').textContent =
-            reflection.length > 0
-                ? `Consider focusing on: ${reflection.join(', ')} tomorrow.`
-                : "Great job! You completed all key tasks today. ✨";
+        updateDailyScore(rowData,tr);
+        updateCharts();
+        updateWeeklyTotalAndLevel();
     }
 
-    function generateWeeklySummary() {
-        const table = trackerTableBody;
-        if (!table || table.rows.length < 1) return;
+    function updateDailyScore(rowData,tr){
+        let score=0;
+        score+=rowData.prayer?1:0;
+        score+=rowData.mindset?1:0;
+        score+=rowData.prioritize?1:0;
+        score+=rowData.visualize?1:0;
+        score+=rowData.exercise?3:0;
+        score+=rowData.tracking?3:0;
+        score-=rowData.habitSlips;
+        score+=rowData.jobHours;
+        score+=rowData.impactHours*3;
+        rowData.dailyScore=score;
+        tr.querySelector('.daily-score-cell').textContent=score;
+    }
 
-        let weeklyPoints = 0;
-        let dailyPoints = [];
+    document.getElementById('add-day-btn').addEventListener('click',()=>addDayRow());
+    createTrackerTable();
 
-        for (let i = 0; i < table.rows.length; i++) {
-            const scoreCell = table.rows[i].cells[10];
-            const score = parseInt(scoreCell.textContent || 0);
-            dailyPoints.push(score);
-            weeklyPoints += score;
+    // ==== Charts ====
+    const dailyCtx=document.getElementById('dailyChart').getContext('2d');
+    const weeklyCtx=document.getElementById('weeklyChart').getContext('2d');
+
+    const dailyChart=new Chart(dailyCtx,{type:'bar',data:{labels:[],datasets:[{label:'Daily Points',data:[],backgroundColor:'rgba(59,130,246,0.5)'}]},options:{responsive:true,animation:false,plugins:{legend:{display:false}}}});
+    const weeklyChart=new Chart(weeklyCtx,{type:'bar',data:{labels:[],datasets:[{label:'Weekly Points',data:[],backgroundColor:'rgba(16,185,129,0.5)'}]},options:{responsive:true,animation:false,plugins:{legend:{display:false}}}});
+
+    function updateCharts(){
+        dailyChart.data.labels=dailyData.map((_,i)=>`Day ${i+1}`);
+        dailyChart.data.datasets[0].data=dailyData.map(d=>d.dailyScore);
+        dailyChart.update();
+
+        const weeklyPoints=dailyData.reduce((acc,d)=>acc+d.dailyScore,0);
+        weeklyChart.data.labels=['Week 1'];
+        weeklyChart.data.datasets[0].data=[weeklyPoints];
+        weeklyChart.update();
+    }
+
+    // ==== Weekly Total & Level ====
+    function updateWeeklyTotalAndLevel(){
+        const weeklyTotal=dailyData.reduce((acc,d)=>acc+d.dailyScore,0);
+        document.getElementById('weekly-total').textContent=weeklyTotal;
+
+        let level='Below Growth Level One';
+        if(weeklyTotal>=112&&weeklyTotal<=125) level='Level 2';
+        else if(weeklyTotal>=126&&weeklyTotal<=140) level='Level 3';
+        else if(weeklyTotal>=141&&weeklyTotal<=170) level='Level 4';
+        document.getElementById('crusade-level').textContent=level;
+
+        // Level up streak logic
+        let streak=0;
+        if(level!=='Below Growth Level One'){
+            streak=dailyData.length>=28?4:Math.floor(dailyData.length/7);
         }
-
-        const avgPoints = (weeklyPoints / dailyPoints.length).toFixed(1);
-
-        document.getElementById('weekly-summary-output').textContent =
-            `Weekly Total: ${weeklyPoints} points, Avg/Day: ${avgPoints}.` +
-            ` Highest scoring day: ${Math.max(...dailyPoints)}, Lowest: ${Math.min(...dailyPoints)}.`;
-
-        document.getElementById('weekly-total').textContent = weeklyPoints;
+        document.getElementById('level-streak').textContent=streak;
     }
-
-    document.getElementById('reflection-btn').addEventListener('click', generateDailyReflection);
-    document.getElementById('weekly-summary-btn').addEventListener('click', generateWeeklySummary);
 });
 </script>
 </body>
