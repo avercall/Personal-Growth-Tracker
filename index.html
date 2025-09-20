@@ -147,51 +147,50 @@ function calculateScore(data={}) {
   return score;
 }
 
+// Load previous days
 function loadDailyTracker() {
   const tbody=document.querySelector("#dailyTracker tbody");
   db.collection("daily").where("uid","==",currentUser.uid).orderBy("date").onSnapshot(snapshot=>{
     tbody.innerHTML="";
     snapshot.forEach(doc=>{
-      const data=doc.data();
-      const row=document.createElement("tr");
-      row.innerHTML=`
-        <td>${data.date}</td>
-        <td><input type="checkbox" ${data.prayer?"checked":""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
-        <td><input type="checkbox" ${data.mindset?"checked":""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
-        <td>${data.prioritize?'<span style="color:green;">✔</span>':''}</td>
-        <td><input type="checkbox" ${data.visualize?"checked":""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
-        <td><input type="checkbox" ${data.exercise?"checked":""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
-        <td><input type="checkbox" ${data.tracking?"checked":""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
-        <td>${data.habitSlips||0}</td>
-        <td>${data.jobHours||0}</td>
-        <td>${data.impactHours||0}</td>
-        <td>${calculateScore(data)}</td>
-      `;
-      tbody.appendChild(row);
+      renderDailyRow(doc.data());
     });
   });
+}
+
+// Render a single row
+function renderDailyRow(data){
+  const tbody = document.querySelector("#dailyTracker tbody");
+  if(document.getElementById("row_"+data.date)) return;
+  const row = document.createElement("tr");
+  row.id = "row_"+data.date;
+  row.innerHTML=`
+    <td>${data.date}</td>
+    <td><input type="checkbox" ${data.prayer?"checked":""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
+    <td><input type="checkbox" ${data.mindset?"checked":""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
+    <td>${data.prioritize?'<span style="color:green;">✔</span>':''}</td>
+    <td><input type="checkbox" ${data.visualize?"checked":""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
+    <td><input type="checkbox" ${data.exercise?"checked":""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
+    <td><input type="checkbox" ${data.tracking?"checked":""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
+    <td>${data.habitSlips||0}</td>
+    <td>${data.jobHours||0}</td>
+    <td>${data.impactHours||0}</td>
+    <td>${calculateScore(data)}</td>
+  `;
+  tbody.appendChild(row);
 }
 
 window.updateCheckbox=function(el,field,date){
   db.collection("daily").doc(`${currentUser.uid}_${date}`).set({[field]:el.checked, uid:currentUser.uid, date:date},{merge:true});
 }
 
-// ADD DAY - overwrite if exists
+// ADD DAY - overwrite and render immediately
 window.addDay=function(){
-  const today=new Date().toISOString().split("T")[0];
-  db.collection("daily").doc(`${currentUser.uid}_${today}`).set({
-    uid: currentUser.uid,
-    date: today,
-    prayer:false,
-    mindset:false,
-    prioritize:false,
-    visualize:false,
-    exercise:false,
-    tracking:false,
-    habitSlips:0,
-    jobHours:0,
-    impactHours:0
-  });
+  const today = new Date().toISOString().split("T")[0];
+  const docRef = db.collection("daily").doc(`${currentUser.uid}_${today}`);
+  const data={uid: currentUser.uid, date: today, prayer:false, mindset:false, prioritize:false, visualize:false,
+              exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0};
+  docRef.set(data).then(()=>{ renderDailyRow(data); });
 }
 
 // DAILY TASKS
