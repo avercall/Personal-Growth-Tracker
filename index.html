@@ -20,6 +20,11 @@
             border-radius: 1rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 6px 8px -3px rgba(0, 0, 0, 0.05);
         }
         input[type="number"] {
             -moz-appearance: textfield;
@@ -44,7 +49,7 @@
                 <!-- Table will be generated here by JavaScript -->
             </div>
             <div class="mt-4 text-center">
-                <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition duration-300">Add Day</button>
+                <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 active:scale-95 transition duration-300">Add Day</button>
             </div>
         </div>
 
@@ -65,9 +70,9 @@
                     <h3 class="text-lg font-bold text-gray-700 mb-2">Job Hours</h3>
                     <p id="job-timer-display" class="text-3xl font-mono text-gray-800 mb-4">00:00:00</p>
                     <div class="flex justify-center space-x-4">
-                        <button id="job-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300">Start</button>
-                        <button id="job-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition duration-300">Stop</button>
-                        <button id="job-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-300">Log</button>
+                        <button id="job-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300">Start</button>
+                        <button id="job-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300">Stop</button>
+                        <button id="job-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 active:scale-95 transition duration-300">Log</button>
                     </div>
                 </div>
 
@@ -76,9 +81,9 @@
                     <h3 class="text-lg font-bold text-gray-700 mb-2">Impact Hours</h3>
                     <p id="impact-timer-display" class="text-3xl font-mono text-gray-800 mb-4">00:00:00</p>
                     <div class="flex justify-center space-x-4">
-                        <button id="impact-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300">Start</button>
-                        <button id="impact-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition duration-300">Stop</button>
-                        <button id="impact-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-300">Log</button>
+                        <button id="impact-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300">Start</button>
+                        <button id="impact-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300">Stop</button>
+                        <button id="impact-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 active:scale-95 transition duration-300">Log</button>
                     </div>
                 </div>
             </div>
@@ -88,7 +93,7 @@
         <div class="card mt-6 mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-700 text-center">Habit Breaking</h2>
-                <button id="add-habit-btn" class="bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-lg hover:bg-green-600 transition duration-300">Add Habit</button>
+                <button id="add-habit-btn" class="bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300">Add Habit</button>
             </div>
             <div id="habit-breaking-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Habits will be dynamically added here -->
@@ -102,7 +107,7 @@
                 <p id="weekly-total" class="text-4xl font-extrabold text-indigo-600">0</p>
             </div>
             <div class="card text-center">
-                <h2 class="text-lg font-bold text-gray-700 mb-2">Growth Level <button id="explain-level-btn" class="text-sm text-indigo-500 hover:text-indigo-700 font-normal">What's this? ✨</button></h2>
+                <h2 class="text-lg font-bold text-gray-700 mb-2">Growth Level <button id="explain-level-btn" class="text-sm text-indigo-500 hover:text-indigo-700 font-normal active:scale-95 transition duration-300">What's this? ✨</button></h2>
                 <p id="crusade-level" class="text-2xl font-bold text-teal-600">Below Growth Level One</p>
                 <p id="level-explanation" class="text-xs text-gray-500 mt-2 italic hidden"></p>
             </div>
@@ -126,12 +131,12 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div class="text-center">
                     <h3 class="text-lg font-bold text-gray-700 mb-2">Daily Reflection</h3>
-                    <button id="reflection-btn" class="w-full bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition duration-300">Generate ✨</button>
+                    <button id="reflection-btn" class="w-full bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 active:scale-95 transition duration-300">Generate ✨</button>
                     <p id="reflection-output" class="mt-4 text-gray-700 italic text-sm"></p>
                 </div>
                 <div class="text-center">
                     <h3 class="text-lg font-bold text-gray-700 mb-2">Weekly Summary</h3>
-                    <button id="weekly-summary-btn" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 transition duration-300">Generate ✨</button>
+                    <button id="weekly-summary-btn" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 active:scale-95 transition duration-300">Generate ✨</button>
                     <p id="weekly-summary-output" class="mt-4 text-gray-700 italic text-sm"></p>
                 </div>
             </div>
@@ -746,8 +751,8 @@
                 const habitDiv = document.createElement('div');
                 habitDiv.className = "flex flex-col items-center p-4 bg-gray-50 rounded-lg relative";
                 habitDiv.innerHTML = `
-                    <button class="absolute top-2 right-2 text-red-500 hover:text-red-700 transition duration-300 delete-habit-btn" data-index="${index}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <button class="absolute top-2 right-2 text-red-500 hover:text-red-700 active:scale-95 transition duration-300 delete-habit-btn" data-index="${index}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
                           <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
                         </svg>
                     </button>
@@ -758,7 +763,7 @@
                     </div>
                     <p class="text-sm text-gray-500">Days Without Slip: <span data-index="${index}" class="text-base font-bold text-green-600 habit-streak">0</span></p>
                     <p class="text-sm text-gray-500">Longest Streak: <span data-index="${index}" class="text-base font-bold text-indigo-600 habit-longest-streak">0</span></p>
-                    <button data-index="${index}" class="bg-red-500 text-white text-sm py-1 px-3 rounded-lg hover:bg-red-600 transition duration-300 mt-2 habit-reset-btn">Reset Streak</button>
+                    <button data-index="${index}" class="bg-red-500 text-white text-sm py-1 px-3 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300 mt-2 habit-reset-btn">Reset Streak</button>
                 `;
                 habitBreakingContainer.appendChild(habitDiv);
 
@@ -813,7 +818,6 @@
             currentHabits.push({ name: '', lastSlipDate: null, longestStreak: 0 });
             await setDoc(habitsDocRef(), { habits: currentHabits });
         };
-        addHabitBtn.addEventListener('click', addHabit);
 
         const deleteHabit = async (index) => {
             if (!db || !userId) return;
@@ -974,6 +978,9 @@
             levelExplanationOutput.textContent = explanation;
             explainLevelBtn.disabled = false;
         });
+        
+        // --- Add Habit Button Listener ---
+        addHabitBtn.addEventListener('click', addHabit);
     });
 </script>
 
