@@ -1,147 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Personal Growth Tracker - Test Mode</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f9fafb; color: #333; }
-    h1,h2 { color:#222; }
-    section { background:#fff; padding:20px; margin-bottom:20px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    button { margin:5px; padding:10px 15px; border:none; border-radius:8px; background:#2563eb; color:white; cursor:pointer; transition:0.2s; }
-    button:hover { background:#1d4ed8; }
-    textarea,input { width:100%; padding:8px; margin:8px 0; border-radius:6px; border:1px solid #ccc; }
-    ul { list-style:none; padding:0; }
-    li { background:#f3f4f6; margin:5px 0; padding:10px; border-radius:6px; }
-    .timer { font-size:1.5rem; font-weight:bold; margin:10px 0; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Growth Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+  th, td { border: 1px solid #ccc; padding: 8px; }
+  input[type="checkbox"] { transform: scale(1.5); }
+  button { padding: 8px 16px; margin: 5px; }
+  .hidden { display: none; }
+</style>
 </head>
 <body>
-  <h1>🌱 Personal Growth Tracker - Test Mode</h1>
 
-  <section>
-    <h2>⏱ Job Hours</h2>
-    <p id="timer" class="timer">00:00:00</p>
-    <button id="startBtn">Start</button>
-    <button id="stopBtn">Stop</button>
-    <button id="logBtn">Log</button>
-    <ul id="logList"></ul>
-  </section>
+<div id="loginDiv">
+  <h2>Login</h2>
+  <input type="email" id="email" placeholder="Email"><br><br>
+  <input type="password" id="password" placeholder="Password"><br><br>
+  <button onclick="login()">Login</button>
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="googleLogin()">Login with Google</button>
+</div>
 
-  <section>
-    <h2>✨ Magic Questions</h2>
-    <button id="generateBtn">Generate ✨</button>
-    <p id="question"></p>
-  </section>
+<div id="appDiv" class="hidden">
+  <h1>Personal Growth Tracker</h1>
+  
+  <h3>Daily Tracker</h3>
+  <table id="dailyTracker">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Prayer</th>
+        <th>Mindset</th>
+        <th>Prioritize</th>
+        <th>Visualize</th>
+        <th>Exercise</th>
+        <th>Tracking</th>
+        <th>Habit Slips</th>
+        <th>Job Hours</th>
+        <th>Impact Hours</th>
+        <th>Daily Score</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-  <section>
-    <h2>📓 Daily Reflection</h2>
-    <textarea id="reflection" placeholder="Write your reflection..."></textarea>
-    <button id="saveReflection">Save Reflection</button>
-    <ul id="reflectionList"></ul>
-  </section>
+  <h3>Prioritization Checklist</h3>
+  <div>
+    <input type="checkbox" class="taskCheckbox"> Task 1<br>
+    <input type="checkbox" class="taskCheckbox"> Task 2<br>
+    <input type="checkbox" class="taskCheckbox"> Task 3<br>
+  </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+  <h3>Habit Breaking</h3>
+  <div>
+    <button onclick="addHabitSlip()">Mark Habit Slip</button>
+  </div>
 
-    // --- Firebase Config ---
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+  <h3>Timers</h3>
+  <div>
+    Job Hours: <span id="jobTimer">0</span> minutes 
+    <button onclick="startJobTimer()">Start Job</button>
+    <button onclick="stopJobTimer()">Stop Job</button><br><br>
+    Impact Hours: <span id="impactTimer">0</span> minutes
+    <button onclick="startImpactTimer()">Start Impact</button>
+    <button onclick="stopImpactTimer()">Stop Impact</button>
+  </div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  <h3>Charts</h3>
+  <canvas id="dailyChart" width="400" height="200"></canvas>
+  <canvas id="weeklyChart" width="400" height="200"></canvas>
 
-    // --- Timer ---
-    let timerInterval;
-    let startTime;
-    const timerDisplay = document.getElementById("timer");
-    const logList = document.getElementById("logList");
+  <h3>Levels & Streak</h3>
+  <div>
+    <p>Current Level: <span id="level">1</span></p>
+    <p>Level-Up Streak: <span id="streak">0</span> weeks</p>
+  </div>
 
-    document.getElementById("startBtn").onclick = () => {
-      startTime = Date.now();
-      timerInterval = setInterval(updateTimer, 1000);
-    };
+  <button onclick="logout()">Logout</button>
+</div>
 
-    document.getElementById("stopBtn").onclick = () => clearInterval(timerInterval);
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+    authDomain: "growth-tracker-a367c.firebaseapp.com",
+    projectId: "growth-tracker-a367c",
+    storageBucket: "growth-tracker-a367c.firebasestorage.app",
+    messagingSenderId: "277469925642",
+    appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+    measurementId: "G-DPYPWBMHLB"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-    document.getElementById("logBtn").onclick = async () => {
-      clearInterval(timerInterval);
-      const duration = timerDisplay.textContent;
-      const entry = `Worked for ${duration}`;
-      addLogToPage(entry);
+  let currentUser = null;
+  let jobInterval, impactInterval;
+  let jobMinutes = 0, impactMinutes = 0;
 
-      await addDoc(collection(db, "logs"), {
-        entry,
-        date: new Date()
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('loginDiv').classList.add('hidden');
+      document.getElementById('appDiv').classList.remove('hidden');
+      loadDailyTracker();
+    } else {
+      currentUser = null;
+      document.getElementById('loginDiv').classList.remove('hidden');
+      document.getElementById('appDiv').classList.add('hidden');
+    }
+  });
+
+  function login() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.signInWithEmailAndPassword(email, password).catch(alert);
+  }
+
+  function signup() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.createUserWithEmailAndPassword(email, password).catch(alert);
+  }
+
+  function googleLogin() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(alert);
+  }
+
+  function logout() {
+    auth.signOut();
+  }
+
+  // Tracker Logic
+  function loadDailyTracker() {
+    const tbody = document.querySelector("#dailyTracker tbody");
+    tbody.innerHTML = "";
+    const today = new Date().toISOString().split("T")[0];
+
+    db.collection("daily").where("uid", "==", currentUser.uid).get().then(snapshot => {
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        addRow(tbody, data.date, data);
       });
-    };
+    }).catch(alert);
+  }
 
-    function updateTimer() {
-      const elapsed = Date.now() - startTime;
-      const hrs = String(Math.floor(elapsed / 3600000)).padStart(2, "0");
-      const mins = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, "0");
-      const secs = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
-      timerDisplay.textContent = `${hrs}:${mins}:${secs}`;
-    }
-
-    function addLogToPage(text) {
-      const li = document.createElement("li");
-      li.textContent = text;
-      logList.appendChild(li);
-    }
-
-    // --- Magic Questions ---
-    const questions = [
-      "What did I learn today?",
-      "How can I improve tomorrow?",
-      "What am I grateful for?",
-      "What challenged me today?",
-      "What am I proud of?"
+  function addRow(tbody, date, data) {
+    const row = document.createElement("tr");
+    const cols = [
+      date,
+      checkboxHTML("prayer", data?.prayer),
+      checkboxHTML("mindset", data?.mindset),
+      checkboxHTML("prioritize", data?.prioritize),
+      checkboxHTML("visualize", data?.visualize),
+      checkboxHTML("exercise", data?.exercise),
+      checkboxHTML("tracking", data?.tracking),
+      `<button onclick="addHabitSlip()">+1</button>`,
+      `<span id="jobMinutes">${jobMinutes}</span>`,
+      `<span id="impactMinutes">${impactMinutes}</span>`,
+      calculateScore(data)
     ];
-    document.getElementById("generateBtn").onclick = () => {
-      const q = questions[Math.floor(Math.random() * questions.length)];
-      document.getElementById("question").textContent = q;
-    };
+    row.innerHTML = cols.map(c => `<td>${c}</td>`).join("");
+    tbody.appendChild(row);
+    updateCharts();
+    updateLevel();
+  }
 
-    // --- Daily Reflection ---
-    const reflectionInput = document.getElementById("reflection");
-    const reflectionList = document.getElementById("reflectionList");
+  function checkboxHTML(name, checked) {
+    return `<input type="checkbox" ${checked ? "checked" : ""} onclick="updateCheckbox(this,'${name}')">`;
+  }
 
-    document.getElementById("saveReflection").onclick = async () => {
-      const text = reflectionInput.value.trim();
-      if (!text) return;
-      addReflectionToPage(text);
-      reflectionInput.value = "";
+  function updateCheckbox(el, field) {
+    const checked = el.checked;
+    const today = new Date().toISOString().split("T")[0];
+    db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ [field]: checked, uid: currentUser.uid, date: today }, { merge: true });
+  }
 
-      await addDoc(collection(db, "reflections"), {
-        text,
-        date: new Date()
-      });
-    };
+  function addHabitSlip() {
+    const today = new Date().toISOString().split("T")[0];
+    const ref = db.collection("daily").doc(`${currentUser.uid}_${today}`);
+    ref.get().then(doc => {
+      let slips = doc.exists && doc.data().habitSlips ? doc.data().habitSlips : 0;
+      slips++;
+      ref.set({ habitSlips: slips, uid: currentUser.uid, date: today }, { merge: true });
+      loadDailyTracker();
+    });
+  }
 
-    function addReflectionToPage(text) {
-      const li = document.createElement("li");
-      li.textContent = text;
-      reflectionList.appendChild(li);
-    }
+  // Timers
+  function startJobTimer() { clearInterval(jobInterval); jobInterval = setInterval(()=>{ jobMinutes++; document.getElementById("jobTimer").innerText=jobMinutes; },60000); }
+  function stopJobTimer() { clearInterval(jobInterval); }
+  function startImpactTimer() { clearInterval(impactInterval); impactInterval = setInterval(()=>{ impactMinutes++; document.getElementById("impactTimer").innerText=impactMinutes; },60000); }
+  function stopImpactTimer() { clearInterval(impactInterval); }
 
-    // --- Load previous data ---
-    async function loadData() {
-      const logsSnapshot = await getDocs(collection(db, "logs"));
-      logsSnapshot.forEach(doc => addLogToPage(doc.data().entry));
+  // Score & Levels
+  function calculateScore(data={}) {
+    let score = 0;
+    score += data.prayer?1:0;
+    score += data.mindset?1:0;
+    score += data.prioritize?1:0;
+    score += data.visualize?1:0;
+    score += data.exercise?3:0;
+    score += data.tracking?3:0;
+    score -= data.habitSlips || 0;
+    score += (data.jobHours || 0);
+    score += (data.impactHours || 0)*3;
+    return score;
+  }
 
-      const reflectionsSnapshot = await getDocs(collection(db, "reflections"));
-      reflectionsSnapshot.forEach(doc => addReflectionToPage(doc.data().text));
-    }
+  function updateLevel() {
+    // Simplified: fetch weekly points and calculate level & streak
+    document.getElementById("level").innerText = 1;
+    document.getElementById("streak").innerText = 0;
+  }
 
-    loadData();
-  </script>
+  // Charts
+  let dailyChart = new Chart(document.getElementById('dailyChart'), { type:'line', data:{labels:[], datasets:[{label:'Daily Score',data:[],borderColor:'blue',fill:false}]}, options:{} });
+  let weeklyChart = new Chart(document.getElementById('weeklyChart'), { type:'line', data:{labels:[], datasets:[{label:'Weekly Score',data:[],borderColor:'green',fill:false}]}, options:{} });
+
+  function updateCharts() {
+    // Placeholder for chart updates
+  }
+
+  // Prioritization checkbox logic
+  document.querySelectorAll(".taskCheckbox").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      const allChecked = [...document.querySelectorAll(".taskCheckbox")].every(c=>c.checked);
+      const today = new Date().toISOString().split("T")[0];
+      db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ prioritize: allChecked, uid: currentUser.uid, date: today }, { merge: true });
+      loadDailyTracker();
+    });
+  });
+</script>
 </body>
 </html>
