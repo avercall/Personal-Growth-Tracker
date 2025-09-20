@@ -8,17 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="module">
-  // =======================
-  // Firebase Imports
-  // =======================
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
   import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
-  // =======================
-  // Firebase Config
-  // =======================
   const firebaseConfig = {
     apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
     authDomain: "growth-tracker-a367c.firebaseapp.com",
@@ -34,16 +28,13 @@
   const auth = getAuth();
   const db = getFirestore();
 
-  // =======================
-  // Elements
-  // =======================
   let currentUserId = null;
+  let dailyData = [];
+  let habits = [];
 
   window.addEventListener('DOMContentLoaded', () => {
-
     const loginSection = document.getElementById('login-section');
     const appSection = document.getElementById('app-section');
-
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
     const loginBtn = document.getElementById('login-btn');
@@ -51,10 +42,21 @@
     const googleBtn = document.getElementById('google-btn');
     const logoutBtn = document.getElementById('logout-btn');
 
+    const trackerContainer = document.getElementById('tracker-table-container');
+    const addDayBtn = document.getElementById('add-day-btn');
+    const habitContainer = document.getElementById('habit-breaking-container');
+    const addHabitBtn = document.getElementById('add-habit-btn');
+    const prioritizeChecklist = document.querySelectorAll('.task-checkbox');
+    const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+
+    let dailyChart = new Chart(dailyCtx,{type:'bar',data:{labels:[],datasets:[{label:'Daily Score',data:[],backgroundColor:'rgba(99,102,241,0.7)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+    let weeklyChart = new Chart(weeklyCtx,{type:'line',data:{labels:[],datasets:[{label:'Weekly Score',data:[],borderColor:'rgba(16,185,129,1)',backgroundColor:'rgba(16,185,129,0.2)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+
     // =======================
-    // Auth State Change
+    // Auth
     // =======================
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth,user=>{
       if(user){
         currentUserId = user.uid;
         loginSection.style.display = 'none';
@@ -66,290 +68,172 @@
       }
     });
 
-    // =======================
-    // Email/Password Login
-    // =======================
-    loginBtn.addEventListener('click', async () => {
-      try {
-        await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-      } catch(e){
-        alert(e.message);
-      }
+    loginBtn.addEventListener('click',async ()=>{
+      try{ await signInWithEmailAndPassword(auth,emailInput.value,passwordInput.value);}
+      catch(e){alert(e.message);}
     });
-
-    signupBtn.addEventListener('click', async () => {
-      try {
-        await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-      } catch(e){
-        alert(e.message);
-      }
+    signupBtn.addEventListener('click',async ()=>{
+      try{ await createUserWithEmailAndPassword(auth,emailInput.value,passwordInput.value);}
+      catch(e){alert(e.message);}
     });
-
-    // =======================
-    // Google Login
-    // =======================
-    googleBtn.addEventListener('click', async () => {
+    googleBtn.addEventListener('click',async ()=>{
       const provider = new GoogleAuthProvider();
-      try{
-        await signInWithPopup(auth, provider);
-      } catch(e){
-        alert(e.message);
-      }
+      try{ await signInWithPopup(auth,provider);} catch(e){alert(e.message);}
     });
-
-    logoutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-    });
+    logoutBtn.addEventListener('click',async ()=>{ await signOut(auth); });
 
     // =======================
-    // Daily Tracker Logic
+    // Firestore
     // =======================
-    const trackerContainer = document.getElementById('tracker-table-container');
-    const addDayBtn = document.getElementById('add-day-btn');
-    let dailyData = [];
+    async function updateFirestore(){
+      if(!currentUserId) return;
+      await setDoc(doc(db,"users",currentUserId),{dailyData,habits});
+    }
 
+    async function loadUserData(){
+      if(!currentUserId) return;
+      const docSnap = await getDoc(doc(db,"users",currentUserId));
+      if(docSnap.exists()){
+        const data = docSnap.data();
+        dailyData = data.dailyData||[];
+        habits = data.habits||[];
+      } else { dailyData = []; habits = []; }
+      createDailyTable();
+      renderHabits();
+    }
+
+    // =======================
+    // Daily Tracker
+    // =======================
     function createDailyTable(){
       trackerContainer.innerHTML = '';
       const table = document.createElement('table');
-      table.className = "table-auto w-full border-collapse border border-gray-300";
+      table.className = "table-auto w-full border-collapse border border-gray-300 text-center";
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['Date','Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','Habit Slips','Job Hours','Impact Hours','Daily Score'].forEach(col => {
-        const th = document.createElement('th');
-        th.className = "border px-2 py-1 bg-gray-200 text-gray-700";
-        th.textContent = col;
-        headerRow.appendChild(th);
+      ['Date','Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','Habit Slips','Job Hours','Impact Hours','Daily Score'].forEach(col=>{
+        const th = document.createElement('th'); th.className="border px-2 py-1 bg-gray-200"; th.textContent=col; headerRow.appendChild(th);
       });
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
+      thead.appendChild(headerRow); table.appendChild(thead);
 
       const tbody = document.createElement('tbody');
-      dailyData.forEach((day,index) => {
+      dailyData.forEach((day,index)=>{
         const tr = document.createElement('tr');
-        // Date
-        const tdDate = document.createElement('td');
-        tdDate.className = "border px-2 py-1 text-center";
-        tdDate.textContent = day.date;
-        tr.appendChild(tdDate);
-        // Columns 2-7 (checkboxes)
+        const tdDate = document.createElement('td'); tdDate.className="border px-2 py-1"; tdDate.textContent=day.date; tr.appendChild(tdDate);
         ['prayer','mindset','prioritize','visualize','exercise','tracking'].forEach(key=>{
-          const td = document.createElement('td');
-          td.className = "border px-2 py-1 text-center";
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.checked = day[key];
-          cb.addEventListener('change',()=>{ day[key] = cb.checked; calculateDailyScore(day,tr); updateFirestore(); });
-          td.appendChild(cb);
-          tr.appendChild(td);
+          const td=document.createElement('td'); td.className="border px-2 py-1";
+          const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=day[key];
+          cb.addEventListener('change',()=>{ day[key]=cb.checked; if(key==='tracking') day[key]?day[key]=true:day[key]=false; calculateDailyScore(day,tr); updateFirestore(); });
+          td.appendChild(cb); tr.appendChild(td);
         });
-        // Habit slips numeric
-        const tdHabit = document.createElement('td');
-        tdHabit.className = "border px-2 py-1 text-center";
-        const habitInput = document.createElement('input');
-        habitInput.type = 'number';
-        habitInput.value = day.habitSlips;
-        habitInput.className = "w-16 text-center border border-gray-300 rounded";
-        habitInput.addEventListener('input',()=>{ day.habitSlips = Number(habitInput.value); calculateDailyScore(day,tr); updateFirestore(); });
-        tdHabit.appendChild(habitInput);
-        tr.appendChild(tdHabit);
-        // Job hours numeric
-        const tdJob = document.createElement('td');
-        tdJob.className = "border px-2 py-1 text-center";
-        const jobInput = document.createElement('input');
-        jobInput.type = 'number';
-        jobInput.value = day.jobHours;
-        jobInput.className = "w-16 text-center border border-gray-300 rounded";
-        jobInput.addEventListener('input',()=>{ day.jobHours = Number(jobInput.value); calculateDailyScore(day,tr); updateFirestore(); });
-        tdJob.appendChild(jobInput);
-        tr.appendChild(tdJob);
-        // Impact hours numeric
-        const tdImpact = document.createElement('td');
-        tdImpact.className = "border px-2 py-1 text-center";
-        const impactInput = document.createElement('input');
-        impactInput.type = 'number';
-        impactInput.value = day.impactHours;
-        impactInput.className = "w-16 text-center border border-gray-300 rounded";
-        impactInput.addEventListener('input',()=>{ day.impactHours = Number(impactInput.value); calculateDailyScore(day,tr); updateFirestore(); });
-        tdImpact.appendChild(impactInput);
-        tr.appendChild(tdImpact);
-        // Daily score
-        const tdScore = document.createElement('td');
-        tdScore.className = "border px-2 py-1 text-center font-bold text-indigo-600";
-        tdScore.textContent = day.dailyScore;
-        tr.appendChild(tdScore);
-
+        // Numeric columns
+        ['habitSlips','jobHours','impactHours'].forEach((key,i)=>{
+          const td=document.createElement('td'); td.className="border px-2 py-1";
+          const input=document.createElement('input'); input.type='number'; input.value=day[key]; input.className="w-16 text-center border rounded";
+          input.addEventListener('input',()=>{ day[key]=Number(input.value); calculateDailyScore(day,tr); updateFirestore(); });
+          td.appendChild(input); tr.appendChild(td);
+        });
+        // Score
+        const tdScore=document.createElement('td'); tdScore.className="border px-2 py-1 font-bold text-indigo-600"; tdScore.textContent=day.dailyScore; tr.appendChild(tdScore);
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       trackerContainer.appendChild(table);
-    }
-
-    function calculateDailyScore(day,tr){
-      let score = 0;
-      if(day.exercise) score +=3;
-      if(day.tracking) score +=3;
-      score -= day.habitSlips || 0;
-      score += day.jobHours || 0;
-      score += 3*(day.impactHours||0);
-      // prioritize checkbox auto-check logic
-      if(prioritizeChecklist.every(cb=>cb.checked)){
-        day.prioritize = true;
-      }
-      tr.querySelectorAll('td')[10].textContent = score;
-      day.dailyScore = score;
       updateCharts();
     }
 
+    function calculateDailyScore(day,tr){
+      let score=0;
+      if(day.exercise) score+=3;
+      if(day.tracking) score+=3;
+      score -= day.habitSlips||0;
+      score += day.jobHours||0;
+      score += 3*(day.impactHours||0);
+      if(Array.from(prioritizeChecklist).every(cb=>cb.checked)) day.prioritize=true;
+      tr.querySelectorAll('td')[10].textContent=score;
+      day.dailyScore=score;
+      updateCharts();
+      updateFirestore();
+    }
+
     addDayBtn.addEventListener('click',()=>{
-      const today = new Date().toLocaleDateString();
+      const today=new Date().toLocaleDateString();
       dailyData.push({date:today,prayer:false,mindset:false,prioritize:false,visualize:false,exercise:false,tracking:false,habitSlips:0,jobHours:0,impactHours:0,dailyScore:0});
       createDailyTable();
       updateFirestore();
     });
 
     // =======================
-    // Prioritization Checklist
+    // Habit Breaking
     // =======================
-    const prioritizeChecklist = document.querySelectorAll('.task-checkbox');
-    prioritizeChecklist.forEach(cb=>{
-      cb.addEventListener('change',()=>{
-        if(Array.from(prioritizeChecklist).every(c=>c.checked)){
-          // check the prioritize box in the last row
-          if(dailyData.length>0) dailyData[dailyData.length-1].prioritize=true;
-          createDailyTable();
-          updateFirestore();
-        }
-      });
-    });
-
-    // =======================
-    // Habit Breaking Section
-    // =======================
-    const habitContainer = document.getElementById('habit-breaking-container');
-    const addHabitBtn = document.getElementById('add-habit-btn');
-    let habits = [];
-
     function renderHabits(){
-      habitContainer.innerHTML = '';
+      habitContainer.innerHTML='';
       habits.forEach((habit,index)=>{
-        const div = document.createElement('div');
-        div.className = 'bg-gray-50 p-4 rounded-lg shadow flex flex-col items-center';
-        div.innerHTML = `
-          <input data-index="${index}" type="text" class="habit-name-input text-center border-b border-gray-300 focus:outline-none mb-2" value="${habit.name}" placeholder="Habit name"/>
-          <p>Current Streak: <span class="habit-streak" data-index="${index}">${habit.streak}</span></p>
-          <div class="flex space-x-2 mt-2">
-            <button data-index="${index}" class="habit-reset-btn bg-yellow-400 text-white px-2 py-1 rounded-lg text-sm">Reset</button>
-            <button data-index="${index}" class="delete-habit-btn bg-red-500 text-white px-2 py-1 rounded-lg text-sm">Delete</button>
-          </div>
-          <label class="mt-2 flex items-center space-x-2 text-sm">
-            <input data-index="${index}" type="checkbox" class="habit-slip-checkbox"/>
-            Mark Slip
-          </label>
-        `;
+        const div=document.createElement('div');
+        div.className='bg-gray-50 p-4 rounded-lg shadow flex flex-col items-center';
+        div.innerHTML=`<input data-index="${index}" type="text" class="habit-name-input text-center border-b mb-2" value="${habit.name}" placeholder="Habit name"/>
+        <p>Current Streak: <span class="habit-streak">${habit.streak}</span></p>
+        <div class="flex space-x-2 mt-2">
+        <button data-index="${index}" class="habit-reset-btn bg-yellow-400 text-white px-2 py-1 rounded text-sm">Reset</button>
+        <button data-index="${index}" class="delete-habit-btn bg-red-500 text-white px-2 py-1 rounded text-sm">Delete</button></div>
+        <label class="mt-2 flex items-center space-x-2 text-sm"><input data-index="${index}" type="checkbox" class="habit-slip-checkbox"/>Mark Slip</label>`;
         habitContainer.appendChild(div);
       });
     }
 
-    addHabitBtn.addEventListener('click',()=>{
-      habits.push({name:'',streak:0});
-      renderHabits();
-    });
+    addHabitBtn.addEventListener('click',()=>{ habits.push({name:'',streak:0}); renderHabits(); updateFirestore(); });
 
     habitContainer.addEventListener('click',(e)=>{
-      const index = e.target.dataset.index;
-      if(e.target.classList.contains('delete-habit-btn')){
-        habits.splice(index,1);
-        renderHabits();
-      }
-      if(e.target.classList.contains('habit-reset-btn')){
-        habits[index].streak=0;
-        renderHabits();
-      }
+      const index=e.target.dataset.index;
+      if(e.target.classList.contains('delete-habit-btn')){ habits.splice(index,1); renderHabits(); updateFirestore(); }
+      if(e.target.classList.contains('habit-reset-btn')){ habits[index].streak=0; renderHabits(); updateFirestore(); }
     });
 
     habitContainer.addEventListener('change',(e)=>{
-      const index = e.target.dataset.index;
+      const index=e.target.dataset.index;
       if(e.target.classList.contains('habit-slip-checkbox')){
-        if(e.target.checked){
-          // add to habit slips of the last daily tracker row
-          if(dailyData.length>0){
-            dailyData[dailyData.length-1].habitSlips +=1;
-            createDailyTable();
-            updateFirestore();
-          }
-        }
+        habits[index].streak+=1;
+        dailyData.forEach(day=>{day.habitSlips=habits.filter(h=>h.streak>0).length;});
+        createDailyTable();
       }
       if(e.target.classList.contains('habit-name-input')){
-        habits[index].name = e.target.value;
+        habits[index].name=e.target.value;
+        updateFirestore();
       }
     });
 
     // =======================
     // Charts
     // =======================
-    const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
-
-    let dailyChart = new Chart(dailyCtx,{type:'bar',data:{labels:[],datasets:[{label:'Daily Score',data:[],backgroundColor:'rgba(99,102,241,0.7)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
-    let weeklyChart = new Chart(weeklyCtx,{type:'line',data:{labels:[],datasets:[{label:'Weekly Score',data:[],borderColor:'rgba(16,185,129,1)',backgroundColor:'rgba(16,185,129,0.2)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
-
     function updateCharts(){
-      const labels = dailyData.map(d=>d.date);
-      const data = dailyData.map(d=>d.dailyScore);
-      dailyChart.data.labels = labels;
-      dailyChart.data.datasets[0].data = data;
+      dailyChart.data.labels = dailyData.map(d=>d.date);
+      dailyChart.data.datasets[0].data = dailyData.map(d=>d.dailyScore);
       dailyChart.update();
-      // weekly
-      const weekScores = [];
+
+      // weekly score = sum of last 7 days
+      const weeks = [];
       for(let i=0;i<dailyData.length;i+=7){
-        const weekSum = dailyData.slice(i,i+7).reduce((acc,d)=>acc+(d.dailyScore||0),0);
-        weekScores.push(weekSum);
+        const weekScore = dailyData.slice(i,i+7).reduce((a,b)=>a+b.dailyScore,0);
+        weeks.push(weekScore);
       }
-      weeklyChart.data.labels = weekScores.map((_,i)=>`Week ${i+1}`);
-      weeklyChart.data.datasets[0].data = weekScores;
+      weeklyChart.data.labels = weeks.map((_,i)=>`Week ${i+1}`);
+      weeklyChart.data.datasets[0].data = weeks;
       weeklyChart.update();
     }
 
-    // =======================
-    // Firestore Sync
-    // =======================
-    async function updateFirestore(){
-      if(!currentUserId) return;
-      try{
-        await setDoc(doc(db,"users",currentUserId),{dailyData,habits});
-      } catch(e){ console.error(e);}
-    }
-
-    async function loadUserData(){
-      if(!currentUserId) return;
-      try{
-        const docSnap = await getDoc(doc(db,"users",currentUserId));
-        if(docSnap.exists()){
-          const data = docSnap.data();
-          dailyData = data.dailyData || [];
-          habits = data.habits || [];
-        } else {
-          dailyData = [];
-          habits = [];
-        }
-        createDailyTable();
-        renderHabits();
-      } catch(e){ console.error(e);}
-    }
-
-  }); // DOMContentLoaded
+  });
 </script>
 <style>
 body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
 input[type=number] {-moz-appearance:textfield;text-align:center;}
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;}
+h1,h2,h3,button{ text-align:center; }
 </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
 
 <!-- Login Section -->
-<div id="login-section" class="w-full max-w-md p-6 bg-white rounded-lg shadow-md text-center">
+<div id="login-section" class="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
   <h1 class="text-2xl font-bold mb-4">Sign In / Sign Up</h1>
   <input id="email" type="email" placeholder="Email" class="mb-2 w-full p-2 border rounded">
   <input id="password" type="password" placeholder="Password" class="mb-2 w-full p-2 border rounded">
@@ -361,21 +245,21 @@ input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;
 </div>
 
 <!-- App Section -->
-<div id="app-section" class="hidden w-full max-w-5xl">
+<div id="app-section" class="hidden w-full max-w-5xl flex flex-col items-center space-y-6">
 
-  <div class="flex justify-end mb-2">
+  <div class="flex justify-end w-full">
     <button id="logout-btn" class="bg-gray-500 text-white px-4 py-2 rounded">Logout</button>
   </div>
 
   <!-- Daily Tracker -->
-  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+  <div class="p-4 bg-white rounded-lg shadow w-full">
     <h2 class="text-xl font-bold mb-2">Daily Tracker</h2>
     <div id="tracker-table-container" class="overflow-x-auto mb-2"></div>
     <button id="add-day-btn" class="bg-indigo-500 text-white px-4 py-2 rounded">Add Day</button>
   </div>
 
   <!-- Prioritization Checklist -->
-  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+  <div class="p-4 bg-white rounded-lg shadow w-full">
     <h2 class="text-xl font-bold mb-2">Prioritization Checklist</h2>
     <div class="space-y-2">
       <div class="flex items-center space-x-2"><input type="checkbox" class="task-checkbox"><input type="text" placeholder="Task 1" class="flex-1 border-b p-1"></div>
@@ -385,7 +269,7 @@ input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;
   </div>
 
   <!-- Habit Breaking -->
-  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+  <div class="p-4 bg-white rounded-lg shadow w-full">
     <div class="flex justify-between items-center mb-2">
       <h2 class="text-xl font-bold">Habit Breaking</h2>
       <button id="add-habit-btn" class="bg-green-500 text-white px-2 py-1 rounded">Add Habit</button>
@@ -394,7 +278,7 @@ input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;
   </div>
 
   <!-- Charts -->
-  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+  <div class="p-4 bg-white rounded-lg shadow w-full">
     <h2 class="text-xl font-bold mb-2">Daily Chart</h2>
     <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2 mb-4"></canvas>
     <h2 class="text-xl font-bold mb-2">Weekly Chart</h2>
