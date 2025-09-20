@@ -1,150 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Personal Growth Tracker</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
-.container { max-width: 900px; }
-.card { background-color: white; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05); padding: 1.5rem; transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.card:hover { transform: translateY(-5px); box-shadow: 0 15px 20px -5px rgba(0,0,0,0.1),0 6px 8px -3px rgba(0,0,0,0.05);}
-input[type="number"] { -moz-appearance: textfield; text-align: center; }
-input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Growth Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        .container { max-width: 900px; }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 15px 20px -5px rgba(0,0,0,0.1),0 6px 8px -3px rgba(0,0,0,0.05);}
+        input[type="number"] { -moz-appearance: textfield; text-align: center; }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
 <div class="container mx-auto p-4 md:p-8">
 
-  <!-- Authentication Section -->
-  <div id="auth-section" class="card text-center">
-    <h1 class="text-3xl font-bold text-gray-800 mb-4">Sign In to Your Growth Tracker</h1>
-    <div class="flex flex-col items-center space-y-3">
-      <input type="email" id="email-input" placeholder="Email" class="border-b border-gray-300 focus:outline-none p-2 w-64 text-center">
-      <input type="password" id="password-input" placeholder="Password" class="border-b border-gray-300 focus:outline-none p-2 w-64 text-center">
-      <div class="flex space-x-2">
-        <button id="email-signup-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Sign Up</button>
-        <button id="email-signin-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Sign In</button>
-      </div>
-      <button id="google-signin-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg mt-2">Sign in with Google</button>
-    </div>
-  </div>
-
-  <!-- Tracker UI Section -->
-  <div id="tracker-ui" style="display:none;">
-    <div class="flex justify-end mb-4">
-      <button id="signout-btn" class="bg-gray-500 text-white font-bold py-1 px-3 rounded-lg">Sign Out</button>
+    <!-- Authentication Section -->
+    <div id="auth-section" class="card mb-6 text-center">
+        <h1 class="text-2xl font-bold mb-4">Sign In / Sign Up</h1>
+        <input type="email" id="email" placeholder="Email" class="border-b border-gray-300 mb-2 p-1"><br>
+        <input type="password" id="password" placeholder="Password" class="border-b border-gray-300 mb-2 p-1"><br>
+        <button id="signup-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg mr-2">Sign Up</button>
+        <button id="login-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Log In</button><br><br>
+        <button id="google-signin-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg">Sign In with Google</button>
     </div>
 
-    <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">Personal Growth Tracker</h1>
+    <!-- Main App Section -->
+    <div id="app-section" class="hidden">
 
-    <!-- Daily Tracker Section -->
-    <div class="card mb-6">
-      <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">Daily Tracker</h2>
-      <div id="tracker-table-container" class="overflow-x-auto"></div>
-      <div class="mt-4 text-center">
-        <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600">Add Day</button>
-      </div>
-    </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">Personal Growth Tracker</h1>
 
-    <!-- Prioritization Checklist Section -->
-    <div class="card mt-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Prioritization Checklist</h2>
-      <div id="prioritization-list" class="space-y-4">
-        <div class="flex items-center space-x-2">
-          <input type="checkbox" class="task-checkbox">
-          <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 1">
+        <!-- Daily Tracker Section -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">Daily Tracker</h2>
+            <div class="overflow-x-auto">
+                <table id="daily-table" class="min-w-full table-auto border-collapse border border-gray-300 text-center">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border p-2">Date</th>
+                            <th class="border p-2">Prayer</th>
+                            <th class="border p-2">Mindset</th>
+                            <th class="border p-2">Prioritize</th>
+                            <th class="border p-2">Visualize</th>
+                            <th class="border p-2">Exercise</th>
+                            <th class="border p-2">Tracking</th>
+                            <th class="border p-2">Habit Slips</th>
+                            <th class="border p-2">Job Hours</th>
+                            <th class="border p-2">Impact Hours</th>
+                            <th class="border p-2">Daily Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-table-body"></tbody>
+                </table>
+            </div>
+            <div class="mt-4 text-center">
+                <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 active:scale-95 transition duration-300">Add Day</button>
+            </div>
         </div>
-        <div class="flex items-center space-x-2">
-          <input type="checkbox" class="task-checkbox">
-          <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 2">
-        </div>
-        <div class="flex items-center space-x-2">
-          <input type="checkbox" class="task-checkbox">
-          <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 3">
-        </div>
-      </div>
-    </div>
 
-    <!-- Timers Section -->
-    <div class="card mt-6 mb-6">
-      <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">Timers</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="text-center">
-          <h3 class="text-lg font-bold text-gray-700 mb-2">Job Hours</h3>
-          <p id="job-timer-display" class="text-3xl font-mono text-gray-800 mb-4">00:00:00</p>
-          <div class="flex justify-center space-x-4">
-            <button id="job-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Start</button>
-            <button id="job-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Stop</button>
-            <button id="job-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Log</button>
-          </div>
+        <!-- Prioritization Checklist Section -->
+        <div class="card mt-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Prioritization Checklist</h2>
+            <div id="prioritization-list" class="space-y-4">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 1">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 2">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 3">
+                </div>
+            </div>
         </div>
-        <div class="text-center">
-          <h3 class="text-lg font-bold text-gray-700 mb-2">Impact Hours</h3>
-          <p id="impact-timer-display" class="text-3xl font-mono text-gray-800 mb-4">00:00:00</p>
-          <div class="flex justify-center space-x-4">
-            <button id="impact-start-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Start</button>
-            <button id="impact-stop-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Stop</button>
-            <button id="impact-log-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Log</button>
-          </div>
+
+        <!-- Habit Breaking Section -->
+        <div class="card mt-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700 text-center">Habit Breaking</h2>
+                <button id="add-habit-btn" class="bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300">Add Habit</button>
+            </div>
+            <div id="habit-breaking-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </div>
-      </div>
-    </div>
 
-    <!-- Habit Breaking Section -->
-    <div class="card mt-6 mb-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold text-gray-700 text-center">Habit Breaking</h2>
-        <button id="add-habit-btn" class="bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-lg hover:bg-green-600">Add Habit</button>
-      </div>
-      <div id="habit-breaking-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-    </div>
+        <!-- Weekly Total, Growth Level, Level Up Streak -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-6">
+            <div class="card text-center">
+                <h2 class="text-lg font-bold text-gray-700 mb-2">Weekly Total</h2>
+                <p id="weekly-total" class="text-4xl font-extrabold text-indigo-600">0</p>
+            </div>
+            <div class="card text-center">
+                <h2 class="text-lg font-bold text-gray-700 mb-2">Growth Level <button id="explain-level-btn" class="text-sm text-indigo-500 hover:text-indigo-700 font-normal active:scale-95 transition duration-300">What's this? ✨</button></h2>
+                <p id="crusade-level" class="text-2xl font-bold text-teal-600">Below Growth Level One</p>
+                <p id="level-explanation" class="text-xs text-gray-500 mt-2 italic hidden"></p>
+            </div>
+            <div class="card text-center">
+                <h2 class="text-lg font-bold text-gray-700 mb-2">Level Up Streak</h2>
+                <p id="level-streak" class="text-4xl font-extrabold text-blue-600">0</p>
+            </div>
+        </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-6">
-      <div class="card">
-        <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Daily Points Chart</h2>
-        <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
-      </div>
-      <div class="card">
-        <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Weekly Points Chart</h2>
-        <canvas id="weeklyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
-      </div>
+        <!-- Charts -->
+        <div class="card mt-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Progress Charts</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+                <canvas id="weeklyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- Firebase + Tracker Script -->
+<!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, setDoc, doc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+    // Firebase imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
+    import { getFirestore, collection, addDoc, doc, setDoc, getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-  authDomain: "growth-tracker-a367c.firebaseapp.com",
-  projectId: "growth-tracker-a367c",
-  storageBucket: "growth-tracker-a367c.firebasestorage.app",
-  messagingSenderId: "277469925642",
-  appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-  measurementId: "G-DPYPWBMHLB"
-};
+    // Firebase config
+    const firebaseConfig = {
+        apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+        authDomain: "growth-tracker-a367c.firebaseapp.com",
+        projectId: "growth-tracker-a367c",
+        storageBucket: "growth-tracker-a367c.firebasestorage.app",
+        messagingSenderId: "277469925642",
+        appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+        measurementId: "G-DPYPWBMHLB"
+    };
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth();
-const db = getFirestore();
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
+    const auth = getAuth();
 
-document.addEventListener('DOMContentLoaded', () => {
-  // --- Auth + Tracker logic will be here ---
-  // (Same as previous step with full Firestore integration, checkboxes auto-update,
-  // points calculations, daily/weekly charts, habit slips linked to tracker, prioritize auto-checks)
-});
+    const googleProvider = new GoogleAuthProvider();
+
+    const authSection = document.getElementById('auth-section');
+    const appSection = document.getElementById('app-section');
+
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const signupBtn = document.getElementById('signup-btn');
+    const loginBtn = document.getElementById('login-btn');
+    const googleBtn = document.getElementById('google-signin-btn');
+
+    signupBtn.addEventListener('click', async () => {
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            alert('Sign up successful');
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    loginBtn.addEventListener('click', async () => {
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            alert('Login successful');
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    googleBtn.addEventListener('click', async () => {
+        try {
+            await signInWithPopup(auth, googleProvider);
+            alert('Google Sign In successful');
+        } catch(e) { alert(e.message); }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+        if(user){
+            authSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+            // Load user data here...
+        } else {
+            authSection.classList.remove('hidden');
+            appSection.classList.add('hidden');
+        }
+    });
+
 </script>
 </body>
 </html>
