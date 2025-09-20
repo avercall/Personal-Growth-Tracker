@@ -35,31 +35,6 @@
             -webkit-appearance: none;
             margin: 0;
         }
-        /* Custom styles for loading indicator */
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.75);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            z-index: 1000;
-            display: none;
-        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -83,10 +58,6 @@
             <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Prioritization Checklist</h2>
             <div id="prioritization-list" class="space-y-4">
                 <!-- Prioritization items will be generated here -->
-            </div>
-            <div class="flex justify-center mt-4">
-                <input type="text" id="new-priority-input" placeholder="Add a new task..." class="p-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 flex-1">
-                <button id="add-priority-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-r-lg hover:bg-indigo-600 active:scale-95 transition duration-300">Add</button>
             </div>
         </div>
         
@@ -189,12 +160,6 @@
             <p id="user-id-display" class="font-mono break-all"></p>
         </div>
     </div>
-    <div id="loading-spinner" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 hidden">
-        <div class="loader"></div>
-    </div>
-    <div id="custom-popup" class="popup">
-        <p id="popup-message" class="text-center"></p>
-    </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -213,204 +178,26 @@
     let userId;
     let myChart = null; // Store the Chart.js instance
 
-    // Function to show a custom popup message instead of alert()
-    const showPopup = (message, duration = 3000) => {
-        const popup = document.getElementById('custom-popup');
-        const popupMessage = document.getElementById('popup-message');
-        popupMessage.textContent = message;
-        popup.style.display = 'block';
-        setTimeout(() => {
-            popup.style.display = 'none';
-        }, duration);
-    };
-
-    const showLoader = () => {
-        document.getElementById('loading-spinner').style.display = 'block';
-    };
-
-    const hideLoader = () => {
-        document.getElementById('loading-spinner').style.display = 'none';
-    };
-    
     // --- Habit Breaking Logic ---
     const habitsDocRef = () => doc(db, `/artifacts/${appId}/users/${userId}/habit_breaking`, 'habits');
 
     const addHabit = async () => {
+        console.log("Attempting to add new habit...");
         try {
             if (!db || !userId) {
                 console.error("Database or user not ready.");
-                showPopup("App not ready. Please wait a moment.");
                 return;
             }
-            const newHabitName = await new Promise(resolve => {
-                const message = "Enter the habit you want to break (e.g., 'eating junk food'):";
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = "New Habit";
-                input.className = "w-full p-2 mt-2 text-black rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500";
-                const container = document.createElement('div');
-                container.className = "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-8 rounded-lg shadow-lg z-50 flex flex-col items-center";
-                const textNode = document.createElement('p');
-                textNode.textContent = message;
-                textNode.className = "text-white text-lg mb-4 text-center";
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = "flex space-x-4 mt-4";
-                const confirmBtn = document.createElement('button');
-                confirmBtn.textContent = 'Confirm';
-                confirmBtn.className = "bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300";
-                const cancelBtn = document.createElement('button');
-                cancelBtn.textContent = 'Cancel';
-                cancelBtn.className = "bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300";
-
-                confirmBtn.onclick = () => {
-                    document.body.removeChild(container);
-                    resolve(input.value);
-                };
-                cancelBtn.onclick = () => {
-                    document.body.removeChild(container);
-                    resolve(null);
-                };
-                
-                container.appendChild(textNode);
-                container.appendChild(input);
-                buttonContainer.appendChild(confirmBtn);
-                buttonContainer.appendChild(cancelBtn);
-                container.appendChild(buttonContainer);
-                document.body.appendChild(container);
-                input.focus();
-            });
-
-            if (newHabitName === null || newHabitName.trim() === '') {
-                showPopup("Habit creation cancelled.");
-                return;
-            }
-
             const docSnap = await getDoc(habitsDocRef());
             const currentHabits = docSnap.data()?.habits || [];
-            currentHabits.push({ name: newHabitName.trim(), lastSlipDate: null, longestStreak: 0 });
+            currentHabits.push({ name: '', lastSlipDate: null, longestStreak: 0 });
             await setDoc(habitsDocRef(), { habits: currentHabits });
-            showPopup("New habit added successfully!");
+            console.log("Habit successfully added to Firestore.");
         } catch (error) {
             console.error("Error adding new habit:", error);
-            showPopup("Error adding habit. Check console.");
         }
     };
 
-    const renderHabitBreakingSection = (habits) => {
-        const container = document.getElementById('habit-breaking-container');
-        container.innerHTML = '';
-        if (habits.length === 0) {
-            container.innerHTML = `<p class="text-center text-gray-500 col-span-1 md:col-span-2">No habits tracked yet. Click 'Add Habit' to begin.</p>`;
-            return;
-        }
-
-        habits.forEach((habit, index) => {
-            const today = getTodayDateString();
-            const lastSlipDate = habit.lastSlipDate ? new Date(habit.lastSlipDate.toDate()).toISOString().split('T')[0] : null;
-            const streak = lastSlipDate ? Math.floor((new Date(today) - new Date(lastSlipDate)) / (1000 * 60 * 60 * 24)) : '∞';
-
-            const habitCard = document.createElement('div');
-            habitCard.className = "card";
-            habitCard.innerHTML = `
-                <div class="flex flex-col items-center">
-                    <h3 class="text-lg font-bold text-gray-700 mb-2 text-center">${habit.name}</h3>
-                    <div class="flex items-center space-x-2 mb-2">
-                        <span class="text-sm text-gray-600">Streak:</span>
-                        <span class="text-lg font-extrabold text-teal-500">${streak} days</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-4">Last slip: ${lastSlipDate || 'Never'}</p>
-                    <button class="slip-btn bg-red-500 text-white font-bold py-1 px-3 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300" data-index="${index}">I Slipped</button>
-                </div>
-            `;
-            container.appendChild(habitCard);
-        });
-
-        container.querySelectorAll('.slip-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const index = parseInt(e.target.dataset.index, 10);
-                const docSnap = await getDoc(habitsDocRef());
-                const currentHabits = docSnap.data()?.habits || [];
-                const slippedHabit = currentHabits[index];
-                
-                if (slippedHabit) {
-                    const today = getTodayDateString();
-                    // Increment the daily habit slip counter
-                    const crusadeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
-                    const docSnap = await getDoc(crusadeDocRef);
-                    const currentData = docSnap.data();
-                    const currentSlips = currentData?.habitFastSlips || 0;
-                    await setDoc(crusadeDocRef, { habitFastSlips: currentSlips + 1 }, { merge: true });
-
-                    // Update the lastSlipDate for the habit
-                    slippedHabit.lastSlipDate = new Date();
-                    await setDoc(habitsDocRef(), { habits: currentHabits });
-                    showPopup(`Logged a slip for "${slippedHabit.name}".`);
-                }
-            });
-        });
-    };
-
-    // --- Prioritization Logic ---
-    const priorityDocRef = () => doc(db, `/artifacts/${appId}/users/${userId}/priorities`, getTodayDateString());
-
-    const addPriority = async (task) => {
-        if (!task || task.trim() === '') return;
-        try {
-            const docSnap = await getDoc(priorityDocRef());
-            const currentTasks = docSnap.data()?.tasks || [];
-            currentTasks.push({ id: Date.now(), text: task, completed: false });
-            await setDoc(priorityDocRef(), { tasks: currentTasks }, { merge: true });
-        } catch (error) {
-            console.error("Error adding priority task:", error);
-        }
-    };
-
-    const renderPriorities = (tasks) => {
-        const container = document.getElementById('prioritization-list');
-        container.innerHTML = '';
-        if (tasks.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-500">No tasks for today. Add a high-leverage task to your list!</p>';
-        }
-        tasks.forEach(task => {
-            const taskEl = document.createElement('div');
-            taskEl.className = "flex items-center p-3 bg-gray-50 rounded-lg";
-            taskEl.innerHTML = `
-                <input type="checkbox" class="task-checkbox accent-indigo-500 h-5 w-5 mr-4 cursor-pointer" ${task.completed ? 'checked' : ''} data-id="${task.id}">
-                <span class="flex-1 text-gray-800 text-sm md:text-base ${task.completed ? 'line-through text-gray-400' : ''}">${task.text}</span>
-                <button class="delete-btn text-red-500 hover:text-red-700 ml-4 font-bold active:scale-95 transition duration-300" data-id="${task.id}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            `;
-            container.appendChild(taskEl);
-        });
-
-        container.querySelectorAll('.task-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', async (e) => {
-                const taskId = parseInt(e.target.dataset.id, 10);
-                const docSnap = await getDoc(priorityDocRef());
-                const currentTasks = docSnap.data()?.tasks || [];
-                const updatedTasks = currentTasks.map(task => {
-                    if (task.id === taskId) {
-                        return { ...task, completed: e.target.checked };
-                    }
-                    return task;
-                });
-                await setDoc(priorityDocRef(), { tasks: updatedTasks });
-            });
-        });
-
-        container.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const taskId = parseInt(e.currentTarget.dataset.id, 10);
-                const docSnap = await getDoc(priorityDocRef());
-                const currentTasks = docSnap.data()?.tasks || [];
-                const updatedTasks = currentTasks.filter(task => task.id !== taskId);
-                await setDoc(priorityDocRef(), { tasks: updatedTasks });
-            });
-        });
-    };
 
     document.addEventListener('DOMContentLoaded', async () => {
         const trackerTableContainer = document.getElementById('tracker-table-container');
@@ -429,8 +216,7 @@
         const progressChartEl = document.getElementById('progressChart');
         const habitBreakingContainer = document.getElementById('habit-breaking-container');
         const addHabitBtn = document.getElementById('add-habit-btn');
-        const newPriorityInput = document.getElementById('new-priority-input');
-        const addPriorityBtn = document.getElementById('add-priority-btn');
+
 
         // Timer elements
         const jobTimerDisplay = document.getElementById('job-timer-display');
@@ -454,88 +240,77 @@
             elapsedTime: 0
         };
 
-        const updateTimerDisplay = (time, displayElement) => {
-            const hours = Math.floor(time / 3600);
-            const minutes = Math.floor((time % 3600) / 60);
-            const seconds = Math.floor(time % 60);
-            const formattedTime = [
-                hours.toString().padStart(2, '0'),
-                minutes.toString().padStart(2, '0'),
-                seconds.toString().padStart(2, '0')
-            ].join(':');
-            displayElement.textContent = formattedTime;
-        };
+        // --- Event Listeners for static buttons ---
+        // This is a crucial fix to ensure the button listener is always attached.
+        addHabitBtn.addEventListener('click', addHabit);
 
-        const startTimer = (timer, displayElement, key) => {
-            if (timer.intervalId) return;
-            timer.startTime = Date.now() - timer.elapsedTime;
-            timer.intervalId = setInterval(() => {
-                timer.elapsedTime = Math.floor((Date.now() - timer.startTime) / 1000);
-                updateTimerDisplay(timer.elapsedTime, displayElement);
-            }, 1000);
-            localStorage.setItem(`${key}IsRunning`, 'true');
-        };
+        // --- Firebase Initialization and Authentication ---
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
 
-        const stopTimer = (timer, key) => {
-            clearInterval(timer.intervalId);
-            timer.intervalId = null;
-            localStorage.removeItem(`${key}IsRunning`);
-        };
+        // Listen for authentication state changes
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                userIdDisplay.textContent = `User ID: ${userId}`;
+                console.log("Firebase initialized and user authenticated:", userId);
 
-        const logTimer = async (timer, key) => {
-            stopTimer(timer, key);
-            const hours = timer.elapsedTime / 3600;
-            const today = getTodayDateString();
-            const docRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
-            
-            try {
-                // Ensure the document exists before attempting to update it
-                await setDoc(docRef, {}, { merge: true });
-                await updateDoc(docRef, { [key + 'Hours']: Math.round(hours * 100) / 100 });
-                showPopup(`${key.charAt(0).toUpperCase() + key.slice(1)} hours logged: ${hours.toFixed(2)}.`);
-            } catch (error) {
-                console.error("Error logging hours:", error);
-                showPopup("Error logging hours. Check console.");
+                // IMPORTANT: Call this function on auth state change to ensure docs are always present
+                await createTodayDocs();
+                
+                // Once authenticated, start listening to Firestore data
+                const crusadeCollection = collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`);
+                onSnapshot(crusadeCollection, (snapshot) => {
+                    const dailyData = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    renderTable(dailyData);
+                    updateDashboard(dailyData);
+                    renderProgressChart(dailyData);
+                }, (error) => {
+                    console.error("Error listening to Firestore changes:", error);
+                });
+
+                // Listen for priority data
+                const today = getTodayDateString();
+                const priorityDocRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
+                onSnapshot(priorityDocRef, (docSnapshot) => {
+                    const data = docSnapshot.data()?.tasks || [];
+                    renderPriorities(data);
+                }, (error) => {
+                    console.error("Error listening to priority data:", error);
+                });
+
+                // Listen for habit breaking data
+                const habitsDocRef = doc(db, `/artifacts/${appId}/users/${userId}/habit_breaking`, 'habits');
+                onSnapshot(habitsDocRef, (docSnapshot) => {
+                    const data = docSnapshot.data() || {
+                        habits: []
+                    };
+                    renderHabitBreakingSection(data.habits);
+                }, (error) => {
+                    console.error("Error listening to habit breaking data:", error);
+                });
+
+
+            } else {
+                console.log("No user signed in. Signing in anonymously...");
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    userIdDisplay.textContent = "Authentication failed. Please try again.";
+                }
             }
-            timer.elapsedTime = 0;
-            timer.startTime = 0;
-            updateTimerDisplay(0, document.getElementById(`${key}-timer-display`));
-            localStorage.removeItem(`${key}TimerState`);
-        };
+        });
         
-        // Timer event listeners
-        jobStartBtn.addEventListener('click', () => startTimer(jobTimer, jobTimerDisplay, 'job'));
-        jobStopBtn.addEventListener('click', () => stopTimer(jobTimer, 'job'));
-        jobLogBtn.addEventListener('click', () => logTimer(jobTimer, 'job'));
-        impactStartBtn.addEventListener('click', () => startTimer(impactTimer, impactTimerDisplay, 'impact'));
-        impactStopBtn.addEventListener('click', () => stopTimer(impactTimer, 'impact'));
-        impactLogBtn.addEventListener('click', () => logTimer(impactTimer, 'impact'));
-
-        // Load timer state on page load
-        const loadTimerState = () => {
-            const storedJobState = localStorage.getItem('jobTimerState');
-            if (storedJobState) {
-                const state = JSON.parse(storedJobState);
-                jobTimer.elapsedTime = state.elapsedTime || 0;
-                jobTimer.startTime = state.startTime || 0;
-                if (localStorage.getItem('jobIsRunning')) {
-                    startTimer(jobTimer, jobTimerDisplay, 'job');
-                } else {
-                    updateTimerDisplay(jobTimer.elapsedTime, jobTimerDisplay);
-                }
-            }
-            const storedImpactState = localStorage.getItem('impactTimerState');
-            if (storedImpactState) {
-                const state = JSON.parse(storedImpactState);
-                impactTimer.elapsedTime = state.elapsedTime || 0;
-                impactTimer.startTime = state.startTime || 0;
-                if (localStorage.getItem('impactIsRunning')) {
-                    startTimer(impactTimer, impactTimerDisplay, 'impact');
-                } else {
-                    updateTimerDisplay(impactTimer.elapsedTime, impactTimerDisplay);
-                }
-            }
-        };
+        // --- End Firebase Initialization ---
 
         const saveTimerState = () => {
             localStorage.setItem('jobTimerState', JSON.stringify({
@@ -548,89 +323,28 @@
             }));
         };
 
-        window.addEventListener('beforeunload', saveTimerState);
-        loadTimerState();
-
-        // LLM generation functions with retries
-        const generateContentWithRetry = async (prompt, systemPrompt, maxRetries = 3) => {
-            let attempt = 0;
-            while (attempt < maxRetries) {
-                try {
-                    const payload = {
-                        contents: [{ parts: [{ text: prompt }] }],
-                        tools: [{ "google_search": {} }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                    };
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(`API call failed: ${response.status} - ${JSON.stringify(errorData)}`);
-                    }
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error("API response is empty or malformed.");
-                    return text;
-                } catch (error) {
-                    console.error(`Attempt ${attempt + 1} failed:`, error);
-                    if (attempt === maxRetries - 1) throw error;
-                    const delay = Math.pow(2, attempt) * 1000;
-                    await new Promise(res => setTimeout(res, delay));
-                    attempt++;
+        const loadTimerState = () => {
+            const storedJobState = localStorage.getItem('jobTimerState');
+            if (storedJobState) {
+                const state = JSON.parse(storedJobState);
+                jobTimer.elapsedTime = state.elapsedTime || 0;
+                jobTimer.startTime = state.startTime || 0;
+                if (jobTimer.startTime !== 0) {
+                    startTimer(jobTimer, jobTimerDisplay, 'job');
+                } else {
+                    updateTimerDisplay(jobTimer.elapsedTime, jobTimerDisplay);
                 }
             }
-        };
-
-        const generateReflection = async () => {
-            showLoader();
-            reflectionOutput.textContent = '';
-            try {
-                const docRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, getTodayDateString());
-                const docSnap = await getDoc(docRef);
-                const dailyData = docSnap.data();
-
-                if (!dailyData || Object.keys(dailyData).length === 0) {
-                    throw new Error("No data found for today's reflection.");
+            const storedImpactState = localStorage.getItem('impactTimerState');
+            if (storedImpactState) {
+                const state = JSON.parse(storedImpactState);
+                impactTimer.elapsedTime = state.elapsedTime || 0;
+                impactTimer.startTime = state.startTime || 0;
+                if (impactTimer.startTime !== 0) {
+                    startTimer(impactTimer, impactTimerDisplay, 'impact');
+                } else {
+                    updateTimerDisplay(impactTimer.elapsedTime, impactTimerDisplay);
                 }
-
-                const prompt = `Based on the following personal growth data for today, provide a brief, insightful, and motivating reflection. Focus on key achievements and areas for improvement. Data: ${JSON.stringify(dailyData)}`;
-                const systemPrompt = "You are a personal growth coach. Provide a concise, single-paragraph reflection (under 100 words) to help the user reflect on their day and stay motivated.";
-                const reflectionText = await generateContentWithRetry(prompt, systemPrompt);
-                reflectionOutput.textContent = reflectionText;
-            } catch (error) {
-                console.error("Error generating daily reflection:", error);
-                reflectionOutput.textContent = "Could not generate a reflection. Please check your data and try again.";
-            } finally {
-                hideLoader();
-            }
-        };
-        
-        const generateWeeklySummary = async () => {
-            showLoader();
-            weeklySummaryOutput.textContent = '';
-            try {
-                const crusadeCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`);
-                const querySnapshot = await getDocs(crusadeCollectionRef);
-                const allData = querySnapshot.docs.map(doc => doc.data());
-                const last7DaysData = allData.slice(-7);
-
-                if (last7DaysData.length === 0) {
-                    throw new Error("No data found for weekly summary.");
-                }
-
-                const prompt = `Based on the following personal growth data from the last 7 days, provide a brief, encouraging, and analytical weekly summary. Highlight overall progress, identify trends (positive or negative), and offer a single piece of actionable advice for the next week. Data: ${JSON.stringify(last7DaysData)}`;
-                const systemPrompt = "You are a personal growth coach. Provide a concise, single-paragraph weekly summary (under 150 words) that is both analytical and highly motivating. Highlight key trends and provide actionable advice.";
-                const summaryText = await generateContentWithRetry(prompt, systemPrompt);
-                weeklySummaryOutput.textContent = summaryText;
-            } catch (error) {
-                console.error("Error generating weekly summary:", error);
-                weeklySummaryOutput.textContent = "Could not generate a weekly summary. Please check your data and try again.";
-            } finally {
-                hideLoader();
             }
         };
 
@@ -902,128 +616,388 @@
         
         // Function to create a new day and priorities docs if they don't exist
         const createTodayDocs = async () => {
-            if (!db || !userId) {
+             if (!db || !userId) {
                 console.error("Database or user not ready.");
                 return;
             }
             const today = getTodayDateString();
             const crusadeDocRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
-            const priorityDocRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
-            
-            try {
-                const crusadeDocSnap = await getDoc(crusadeDocRef);
-                if (!crusadeDocSnap.exists()) {
-                    await setDoc(crusadeDocRef, {
-                        date: today,
-                        prayer: 0,
-                        mindsetWork: 0,
-                        prioritize: 0,
-                        visualize: 0,
-                        exercise: 0,
-                        tracking: 0,
-                        habitFastSlips: 0,
-                        jobHours: 0,
-                        impactHours: 0
-                    });
-                    console.log("New day document created for today.");
-                }
+            const crusadeDocSnap = await getDoc(crusadeDocRef);
 
-                const priorityDocSnap = await getDoc(priorityDocRef);
-                if (!priorityDocSnap.exists()) {
-                    await setDoc(priorityDocRef, { tasks: [] });
-                    console.log("New priority document created for today.");
-                }
-            } catch (error) {
-                console.error("Error creating today's documents:", error);
+            if (!crusadeDocSnap.exists()) {
+                 const newDay = {
+                    date: today,
+                    prayer: 0, mindsetWork: 0, prioritize: 0, exercise: 0, visualize: 0, tracking: 0,
+                    habitFastSlips: 0, jobHours: 0, impactHours: 0
+                };
+                await setDoc(crusadeDocRef, newDay);
+            }
+
+            const priorityDocRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
+            const priorityDocSnap = await getDoc(priorityDocRef);
+
+            if (!priorityDocSnap.exists()) {
+                const defaultPriorities = {
+                    tasks: [
+                        { text: '', completed: false },
+                        { text: '', completed: false },
+                        { text: '', completed: false }
+                    ]
+                };
+                await setDoc(priorityDocRef, defaultPriorities);
             }
         };
 
-        // Main event listeners
         addDayBtn.addEventListener('click', async () => {
-            await createTodayDocs();
-            showPopup("New day created! Please refresh the page.");
-        });
-
-        explainLevelBtn.addEventListener('click', () => {
-            const explanationText = "Your Growth Level is based on your total weekly score. Level One is 99 points, and each level up requires a higher score. A Level Up Streak is achieved by reaching a new level for consecutive weeks.";
-            levelExplanationOutput.textContent = explanationText;
-            levelExplanationOutput.classList.toggle('hidden');
-        });
-
-        addPriorityBtn.addEventListener('click', () => {
-            addPriority(newPriorityInput.value);
-            newPriorityInput.value = '';
-        });
-        
-        reflectionBtn.addEventListener('click', generateReflection);
-        weeklySummaryBtn.addEventListener('click', generateWeeklySummary);
-        addHabitBtn.addEventListener('click', addHabit);
-        
-        // --- Firebase Initialization and Authentication ---
-        const app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-
-        // Listen for authentication state changes
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                userIdDisplay.textContent = `User ID: ${userId}`;
-                console.log("Firebase initialized and user authenticated:", userId);
-
-                // IMPORTANT: Call this function on auth state change to ensure docs are always present
+            try {
                 await createTodayDocs();
-                
-                // Once authenticated, start listening to Firestore data
-                const crusadeCollection = collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`);
-                onSnapshot(crusadeCollection, (snapshot) => {
-                    const dailyData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    renderTable(dailyData);
-                    updateDashboard(dailyData);
-                    renderProgressChart(dailyData);
-                }, (error) => {
-                    console.error("Error listening to Firestore changes:", error);
-                });
-
-                // Listen for priority data
-                const today = getTodayDateString();
-                const priorityDocRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
-                onSnapshot(priorityDocRef, (docSnapshot) => {
-                    const data = docSnapshot.data()?.tasks || [];
-                    renderPriorities(data);
-                }, (error) => {
-                    console.error("Error listening to priority data:", error);
-                });
-
-                // Listen for habit breaking data
-                const habitsDocRef = doc(db, `/artifacts/${appId}/users/${userId}/habit_breaking`, 'habits');
-                onSnapshot(habitsDocRef, (docSnapshot) => {
-                    const data = docSnapshot.data() || {
-                        habits: []
-                    };
-                    renderHabitBreakingSection(data.habits);
-                }, (error) => {
-                    console.error("Error listening to habit breaking data:", error);
-                });
-
-            } else {
-                console.log("No user signed in. Signing in anonymously...");
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    userIdDisplay.textContent = "Authentication failed. Please try again.";
-                }
+            } catch (e) {
+                console.error("Error adding document: ", e);
             }
         });
+
+        // --- Timer Logic ---
+        const formatTime = (ms) => {
+            const seconds = Math.floor(ms / 1000) % 60;
+            const minutes = Math.floor(ms / (1000 * 60)) % 60;
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const pad = (num) => num.toString().padStart(2, '0');
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        };
+        const updateTimerDisplay = (elapsedTime, display) => {
+            display.textContent = formatTime(elapsedTime);
+        };
+        const startTimer = (timer, display) => {
+            if (timer.intervalId) return;
+            timer.startTime = Date.now() - timer.elapsedTime;
+            timer.intervalId = setInterval(() => {
+                timer.elapsedTime = Date.now() - timer.startTime;
+                updateTimerDisplay(timer.elapsedTime, display);
+                saveTimerState();
+            }, 1000);
+        };
+        const stopTimer = (timer) => {
+            clearInterval(timer.intervalId);
+            timer.intervalId = null;
+            saveTimerState();
+        };
+        const resetTimer = (timer, display) => {
+            stopTimer(timer);
+            timer.elapsedTime = 0;
+            timer.startTime = 0;
+            updateTimerDisplay(timer.elapsedTime, display);
+            saveTimerState();
+        };
+
+        // Logs hours from a timer to the daily tracker
+        const logHours = async (timer, field) => {
+            if (!db || !userId) {
+                console.error("Database or user not ready.");
+                return;
+            }
+            
+            const today = getTodayDateString();
+            const docRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
+            const docSnap = await getDoc(docRef);
+            
+            if (!docSnap.exists()) {
+                await createTodayDocs();
+            }
+
+            const hoursToAdd = (timer.elapsedTime / (1000 * 60 * 60));
+            const roundedHours = Math.round(hoursToAdd * 100) / 100;
+            
+            const currentHours = docSnap.data()?.[field] || 0;
+            await updateDoc(docRef, { [field]: currentHours + roundedHours });
+            
+            resetTimer(timer, (field === 'jobHours' ? jobTimerDisplay : impactTimerDisplay));
+        };
+
+        jobStartBtn.addEventListener('click', () => startTimer(jobTimer, jobTimerDisplay));
+        jobStopBtn.addEventListener('click', () => stopTimer(jobTimer));
+        jobLogBtn.addEventListener('click', () => logHours(jobTimer, 'jobHours'));
+
+        impactStartBtn.addEventListener('click', () => startTimer(impactTimer, impactTimerDisplay));
+        impactStopBtn.addEventListener('click', () => stopTimer(impactTimer));
+        impactLogBtn.addEventListener('click', () => logHours(impactTimer, 'impactHours'));
+
+        loadTimerState();
+
+        // --- Prioritization Logic ---
+        const renderPriorities = (tasks) => {
+            prioritizationList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const item = document.createElement('div');
+                item.className = "flex items-center space-x-2";
+                item.innerHTML = `
+                    <input type="checkbox" id="priority-${index}" class="accent-indigo-600 w-4 h-4 rounded-sm" ${task.completed ? 'checked' : ''}>
+                    <label for="priority-${index}" class="flex-grow">
+                        <input type="text" value="${task.text}" placeholder="Objective ${index + 1}" class="w-full border-b-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition duration-300 px-2 py-1 bg-transparent text-gray-800">
+                    </label>
+                `;
+                
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const textInput = item.querySelector('input[type="text"]');
+
+                // Update Firestore when checkbox is checked/unchecked
+                checkbox.addEventListener('change', async () => {
+                    if (!db || !userId) return;
+                    const today = getTodayDateString();
+                    const docRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
+                    const tasksCopy = [...tasks];
+                    tasksCopy[index].completed = checkbox.checked;
+                    await updateDoc(docRef, { tasks: tasksCopy });
+                    
+                    // Check if all priorities are complete and update daily tracker
+                    const allCompleted = tasksCopy.every(t => t.completed);
+                    const dailyTrackerDocRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
+                    await updateDoc(dailyTrackerDocRef, { prioritize: allCompleted ? 1 : 0 });
+                });
+
+                // Update Firestore when text changes
+                textInput.addEventListener('change', async () => {
+                    if (!db || !userId) return;
+                    const today = getTodayDateString();
+                    const docRef = doc(db, `/artifacts/${appId}/users/${userId}/priorities`, today);
+                    const tasksCopy = [...tasks];
+                    tasksCopy[index].text = textInput.value;
+                    await updateDoc(docRef, { tasks: tasksCopy });
+                });
+
+                prioritizationList.appendChild(item);
+            });
+        };
+
+        const renderHabitBreakingSection = (habits) => {
+            habitBreakingContainer.innerHTML = '';
+            const today = getTodayDateString();
+
+            habits.forEach((habit, index) => {
+                const habitDiv = document.createElement('div');
+                habitDiv.className = "flex flex-col items-center p-4 bg-gray-50 rounded-lg relative";
+                habitDiv.innerHTML = `
+                    <button class="absolute top-2 right-2 text-red-500 hover:text-red-700 active:scale-95 transition duration-300 delete-habit-btn" data-index="${index}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <input type="text" data-index="${index}" value="${habit.name}" placeholder="Habit to Break #${index + 1}" class="text-center font-bold text-lg mb-2 w-full bg-transparent focus:outline-none focus:border-indigo-500 rounded-md border-b-2 border-gray-200 p-2 habit-name-input">
+                    <div class="flex items-center space-x-4 mt-2 mb-4">
+                        <label for="habit-slip-${index}" class="text-gray-700">Had a slip today?</label>
+                        <input type="checkbox" id="habit-slip-${index}" data-index="${index}" class="accent-red-500 rounded-sm w-5 h-5 habit-slip-checkbox">
+                    </div>
+                    <p class="text-sm text-gray-500">Days Without Slip: <span data-index="${index}" class="text-base font-bold text-green-600 habit-streak">0</span></p>
+                    <p class="text-sm text-gray-500">Longest Streak: <span data-index="${index}" class="text-base font-bold text-indigo-600 habit-longest-streak">0</span></p>
+                    <button data-index="${index}" class="bg-red-500 text-white text-sm py-1 px-3 rounded-lg hover:bg-red-600 active:scale-95 transition duration-300 mt-2 habit-reset-btn">Reset Streak</button>
+                `;
+                habitBreakingContainer.appendChild(habitDiv);
+
+                const lastSlipDate = habit.lastSlipDate ? new Date(habit.lastSlipDate) : null;
+                const currentStreak = lastSlipDate ? Math.max(0, Math.floor((new Date() - lastSlipDate) / (1000 * 60 * 60 * 24))) : 0;
+                habitDiv.querySelector('.habit-streak').textContent = currentStreak;
+                habitDiv.querySelector('.habit-longest-streak').textContent = habit.longestStreak;
+            });
+            
+            // Re-attach event listeners to all dynamically created elements
+            attachHabitEventListeners(habits);
+        };
+
+        const attachHabitEventListeners = (habits) => {
+            document.querySelectorAll('.habit-name-input').forEach(input => {
+                input.onchange = (e) => updateHabitData(e.target.dataset.index, 'name', e.target.value);
+            });
+
+            document.querySelectorAll('.habit-slip-checkbox').forEach(checkbox => {
+                checkbox.onchange = async (e) => {
+                    if (e.target.checked) {
+                        const index = e.target.dataset.index;
+                        const currentStreak = parseInt(document.querySelector(`.habit-streak[data-index="${index}"]`).textContent);
+                        await handleSlip(index, currentStreak);
+                    }
+                };
+            });
+
+            document.querySelectorAll('.habit-reset-btn').forEach(btn => {
+                btn.onclick = (e) => handleReset(e.target.dataset.index);
+            });
+
+            document.querySelectorAll('.delete-habit-btn').forEach(btn => {
+                btn.onclick = (e) => deleteHabit(e.target.closest('button').dataset.index);
+            });
+        };
+
+        const updateHabitData = async (index, field, value) => {
+            if (!db || !userId) return;
+            const docSnap = await getDoc(habitsDocRef());
+            const currentHabits = docSnap.data()?.habits || [];
+            if (currentHabits[index]) {
+                currentHabits[index][field] = value;
+                await setDoc(habitsDocRef(), { habits: currentHabits });
+            }
+        };
+
+        const deleteHabit = async (index) => {
+            if (!db || !userId) return;
+            const docSnap = await getDoc(habitsDocRef());
+            const currentHabits = docSnap.data()?.habits || [];
+            currentHabits.splice(index, 1);
+            await setDoc(habitsDocRef(), { habits: currentHabits });
+        };
+
+        const handleSlip = async (index, currentStreak) => {
+            if (!db || !userId) return;
+            const docSnap = await getDoc(habitsDocRef());
+            const currentHabits = docSnap.data()?.habits || [];
+            
+            const habit = currentHabits[index];
+            habit.lastSlipDate = getTodayDateString();
+            if (currentStreak > habit.longestStreak) {
+                habit.longestStreak = currentStreak;
+            }
+            
+            await setDoc(habitsDocRef(), { habits: currentHabits });
+
+            const today = getTodayDateString();
+            const dailyTrackerDocRef = doc(db, `/artifacts/${appId}/users/${userId}/crusade_data`, today);
+            const dailyDocSnap = await getDoc(dailyTrackerDocRef);
+            if (!dailyDocSnap.exists()) {
+                await createTodayDocs();
+            }
+            const currentSlips = dailyDocSnap.data()?.habitFastSlips || 0;
+            await updateDoc(dailyTrackerDocRef, { habitFastSlips: currentSlips + 1 });
+        };
+
+        const handleReset = async (index) => {
+             if (!db || !userId) return;
+            const docSnap = await getDoc(habitsDocRef());
+            const currentHabits = docSnap.data()?.habits || [];
+            
+            const habit = currentHabits[index];
+            habit.lastSlipDate = null;
+            await setDoc(habitsDocRef(), { habits: currentHabits });
+        };
+
+        // Gemini API Functions
+        const makeGeminiApiCall = async (prompt) => {
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                };
+                let response = null;
+                const maxRetries = 3;
+                let retryCount = 0;
+
+                while (retryCount < maxRetries) {
+                    try {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.status === 429) {
+                            const delay = Math.pow(2, retryCount) * 1000;
+                            await new Promise(res => setTimeout(res, delay));
+                            retryCount++;
+                            continue;
+                        }
+                        break; // Exit loop on successful response
+                    } catch (error) {
+                        const delay = Math.pow(2, retryCount) * 1000;
+                        await new Promise(res => setTimeout(res, delay));
+                        retryCount++;
+                    }
+                }
+
+                if (!response || !response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    return candidate.content.parts[0].text;
+                }
+                throw new Error("Invalid API response format.");
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                return "Failed to get a response. Please try again later.";
+            }
+        };
+
+        // Daily Reflection feature
+        reflectionBtn.addEventListener('click', async () => {
+            reflectionBtn.disabled = true;
+            reflectionOutput.textContent = 'Generating your reflection...';
+            const dailyData = (await getDocs(collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`))).docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const today = getTodayDateString();
+            const todayData = dailyData.find(day => day.date === today);
+            
+            if (!todayData) {
+                reflectionOutput.textContent = "Please add today's data first by clicking 'Add Day'.";
+                reflectionBtn.disabled = false;
+                return;
+            }
+
+            const dailyScore = getDailyScore(todayData);
+            const prompt = `Based on a daily personal growth score of ${dailyScore} on a scale from 0 to 100+, generate a short, encouraging reflection or a motivational quote for a personal growth tracker app user. Keep it brief and inspiring.`;
+            const reflection = await makeGeminiApiCall(prompt);
+            reflectionOutput.textContent = reflection;
+            reflectionBtn.disabled = false;
+        });
+
+        // Weekly Summary feature
+        weeklySummaryBtn.addEventListener('click', async () => {
+            weeklySummaryBtn.disabled = true;
+            weeklySummaryOutput.textContent = 'Generating your weekly summary...';
+
+            // Get last 7 days of data
+            const allData = (await getDocs(collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`))).docs.map(doc => doc.data());
+            const sortedData = allData.sort((a, b) => a.date.localeCompare(b.date));
+            const weeklyData = sortedData.slice(-7);
+
+            if (weeklyData.length === 0) {
+                weeklySummaryOutput.textContent = 'No weekly data found. Please log some days to generate a summary.';
+                weeklySummaryBtn.disabled = false;
+                return;
+            }
+
+            const weeklyTotalScore = weeklyData.reduce((sum, day) => sum + (getDailyScore(day) || 0), 0);
+            const weeklyJobHours = weeklyData.reduce((sum, day) => sum + (day.jobHours || 0), 0);
+            const weeklyImpactHours = weeklyData.reduce((sum, day) => sum + (day.impactHours || 0), 0);
+            const growthLevel = getGrowthLevel(weeklyTotalScore);
+
+            const prompt = `
+            Analyze the following weekly performance data for a personal growth tracker user:
+            - Weekly total score: ${weeklyTotalScore}
+            - Current Growth Level: ${growthLevel}
+            - Total Job Hours: ${weeklyJobHours.toFixed(2)}
+            - Total Impact Hours: ${weeklyImpactHours.toFixed(2)}
+            - Daily breakdown: ${JSON.stringify(weeklyData.map(d => ({ date: d.date, score: getDailyScore(d) })))}
+            
+            Provide a concise, encouraging, and insightful summary of the user's progress for the past week. Highlight key achievements and offer one actionable piece of advice for the next week. Keep it under 100 words.
+            `;
+            
+            const summary = await makeGeminiApiCall(prompt);
+            weeklySummaryOutput.textContent = summary;
+            weeklySummaryBtn.disabled = false;
+        });
+
+
+        // Explain Growth Level feature
+        explainLevelBtn.addEventListener('click', async () => {
+            explainLevelBtn.disabled = true;
+            levelExplanationOutput.textContent = 'Generating explanation...';
+            levelExplanationOutput.classList.remove('hidden');
+
+            const currentLevel = crusadeLevelEl.textContent;
+            const prompt = `Explain what "${currentLevel}" means in the context of a personal growth tracker app. Describe the achievements for this level and what the next level might entail. Keep the tone inspiring and concise.`;
+            const explanation = await makeGeminiApiCall(prompt);
+            levelExplanationOutput.textContent = explanation;
+            explainLevelBtn.disabled = false;
+        });
+        
     });
 </script>
+
 </body>
 </html>
