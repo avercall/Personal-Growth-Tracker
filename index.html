@@ -1,102 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Personal Growth Tracker</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<style>
-body { font-family:'Segoe UI', Tahoma, Geneva, Verdana,sans-serif; background:#f0f4f8; margin:0; padding:20px; text-align:center;}
-h1,h2,h3{color:#2c3e50;}
-.card{background:white; border-radius:12px; box-shadow:0 6px 12px rgba(0,0,0,0.1); padding:20px; margin:20px auto; max-width:900px;}
-table{width:100%; border-collapse:collapse; margin-top:15px;}
-th,td{border:1px solid #ddd; padding:10px; text-align:center;}
-th{background-color:#3498db; color:white;}
-tr:hover{background-color:#f1f1f1;}
-input[type="checkbox"]{transform:scale(1.3); cursor:pointer;}
-button{padding:10px 18px; margin:5px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:0.3s;}
-button:hover{opacity:0.9;}
-button.primary{background-color:#3498db; color:white;}
-button.secondary{background-color:#2ecc71; color:white;}
-button.danger{background-color:#e74c3c; color:white;}
-input[type=text]{padding:8px; width:70%; margin:5px 0; border-radius:6px; border:1px solid #ccc;}
-.task-container, .habit-container{margin-top:10px;}
-</style>
+  <meta charset="UTF-8">
+  <title>Growth Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin: 0; padding: 0; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; width: 90%; max-width: 800px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; color: #333; }
+    button { padding: 8px 14px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; margin: 5px; }
+    button:hover { background: #45a049; }
+    input[type="text"], input[type="email"], input[type="password"] { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 6px; width: 90%; max-width: 300px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #4CAF50; color: white; }
+    .habit { display: flex; justify-content: space-between; margin: 5px 0; }
+  </style>
 </head>
 <body>
-
-<!-- Login Section -->
-<div id="loginDiv" class="card">
-  <h2>Login</h2>
-  <input type="email" id="email" placeholder="Email"><br>
-  <input type="password" id="password" placeholder="Password"><br>
-  <button class="primary" onclick="login()">Login</button>
-  <button class="secondary" onclick="signup()">Sign Up</button>
-  <button class="primary" onclick="googleLogin()">Login with Google</button>
-</div>
-
-<!-- App Section -->
-<div id="appDiv" class="card" style="display:none;">
-  <h1>Personal Growth Tracker</h1>
-
-  <!-- Daily Tracker -->
-  <div class="card">
-    <h3>Daily Tracker</h3>
-    <button class="primary" onclick="addDay()">Add Day</button>
-    <table id="dailyTracker">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Prayer</th>
-          <th>Mindset</th>
-          <th>Prioritize</th>
-          <th>Visualize</th>
-          <th>Exercise</th>
-          <th>Tracking</th>
-          <th>Habit Slips</th>
-          <th>Job Hours</th>
-          <th>Impact Hours</th>
-          <th>Daily Score</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <div id="login-card" class="card">
+    <h2>Login</h2>
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <button onclick="login()">Login</button>
+    <button onclick="signup()">Sign Up</button>
   </div>
 
-  <!-- Prioritization Tasks -->
-  <div class="card">
-    <h3>Prioritization Checklist (Resets Daily)</h3>
-    <div id="taskInputs" class="task-container"></div>
-    <input type="text" id="newTask" placeholder="Add new task">
-    <button class="secondary" onclick="addTask()">Add Task</button>
+  <div id="app" style="display:none;">
+    <div class="card">
+      <h2>Daily Tracker</h2>
+      <button onclick="addDay()">Add Day</button>
+      <table id="dailyTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Prayer</th>
+            <th>Mindset</th>
+            <th>Prioritize</th>
+            <th>Visualize</th>
+            <th>Exercise</th>
+            <th>Tracking</th>
+            <th>Habit Slips</th>
+            <th>Job Hours</th>
+            <th>Impact Hours</th>
+            <th>Daily Score</th>
+          </tr>
+        </thead>
+        <tbody id="dailyBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Prioritization Checklist</h2>
+      <div id="taskList"></div>
+      <button onclick="resetTasks()">Reset Tasks</button>
+    </div>
+
+    <div class="card">
+      <h2>Habit Breaking</h2>
+      <input type="text" id="habitInput" placeholder="New Habit">
+      <button onclick="addHabit()">Add Habit</button>
+      <div id="habitList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Timers</h2>
+      <div>
+        <button onclick="startTimer('job')">Start Job</button>
+        <button onclick="stopTimer('job')">Stop Job</button>
+        <span id="jobTime">0h</span>
+      </div>
+      <div>
+        <button onclick="startTimer('impact')">Start Impact</button>
+        <button onclick="stopTimer('impact')">Stop Impact</button>
+        <span id="impactTime">0h</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Levels & Weekly Progress</h2>
+      <p id="levelDisplay">Level: 1</p>
+      <p id="weeklyScore">Weekly Score: 0</p>
+      <p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
+    </div>
   </div>
 
-  <!-- Habit Tracker -->
-  <div class="card">
-    <h3>Habit Tracker (Persistent)</h3>
-    <div id="habitList" class="habit-container"></div>
-    <input type="text" id="newHabit" placeholder="Add new habit">
-    <button class="secondary" onclick="addHabit()">Add Habit</button>
-  </div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-  <!-- Timers -->
-  <div class="card">
-    <h3>Timers</h3>
-    Job Hours: <span id="jobTimer">0</span>
-    <button class="primary" onclick="startJobTimer()">Start Job</button>
-    <button class="secondary" onclick="stopJobTimer()">Stop Job</button><br><br>
-    Impact Hours: <span id="impactTimer">0</span>
-    <button class="primary" onclick="startImpactTimer()">Start Impact</button>
-    <button class="secondary" onclick="stopImpactTimer()">Stop Impact</button>
-  </div>
-
-  <button class="primary" onclick="logout()">Logout</button>
-</div>
-
-<script>
-window.onload = async function() {
   const firebaseConfig = {
     apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
     authDomain: "growth-tracker-a367c.firebaseapp.com",
@@ -106,176 +102,66 @@ window.onload = async function() {
     appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
     measurementId: "G-DPYPWBMHLB"
   };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  let currentUser = null, jobInterval, impactInterval, jobMinutes = 0, impactMinutes = 0, dailyTasks = {};
 
-  // AUTH
-  auth.onAuthStateChanged(async user => {
-    if (user) {
-      currentUser = user;
-      document.getElementById('loginDiv').style.display = 'none';
-      document.getElementById('appDiv').style.display = 'block';
-      await loadAllDays();
-      loadTasks();
-      loadHabits();
-    } else {
-      currentUser = null;
-      document.getElementById('loginDiv').style.display = 'block';
-      document.getElementById('appDiv').style.display = 'none';
-    }
+  const appFirebase = initializeApp(firebaseConfig);
+  const auth = getAuth(appFirebase);
+  const db = getFirestore(appFirebase);
+
+  const loginCard = document.getElementById("login-card");
+  const appDiv = document.getElementById("app");
+
+  async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    try { await signInWithEmailAndPassword(auth, email, password); }
+    catch(e){ alert(e.message); }
+  }
+  async function signup() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    try { await createUserWithEmailAndPassword(auth, email, password); }
+    catch(e){ alert(e.message); }
+  }
+
+  onAuthStateChanged(auth, user => {
+    if(user){ loginCard.style.display="none"; appDiv.style.display="block"; }
+    else{ loginCard.style.display="block"; appDiv.style.display="none"; }
   });
-  window.login = () => auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert);
-  window.signup = () => auth.createUserWithEmailAndPassword(document.getElementById('email').value, document.getElementById('password').value).catch(alert);
-  window.googleLogin = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(alert);
-  window.logout = () => auth.signOut();
 
-  // --- DAILY TRACKER ---
-  function calculateScore(data = {}) {
+  // --- Scoring & Levels ---
+  let weeklyPoints = 0, currentLevel = 1, streak = 0;
+
+  function calculateScore(row){
     let score = 0;
-    score += data.prayer ? 1 : 0;
-    score += data.mindset ? 1 : 0;
-    score += data.prioritize ? 1 : 0;
-    score += data.visualize ? 1 : 0;
-    score += data.exercise ? 3 : 0;
-    score += data.tracking ? 3 : 0;
-    score -= data.habitSlips || 0;
-    score += data.jobHours || 0;
-    score += (data.impactHours || 0) * 3;
+    if(row.prayer) score += 1;
+    if(row.mindset) score += 1;
+    if(row.prioritize) score += 1;
+    if(row.visualize) score += 1;
+    if(row.exercise) score += 3;
+    if(row.tracking) score += 3;
+    score -= row.habitSlips;
+    score += row.jobHours;
+    score += row.impactHours*3;
     return score;
   }
 
-  async function loadAllDays() {
-    const tbody = document.querySelector("#dailyTracker tbody");
-    tbody.innerHTML = '';
-    const snapshot = await db.collection("daily").where("uid", "==", currentUser.uid).get();
-    let days = [];
-    snapshot.forEach(doc => days.push(doc.data()));
-    days.sort((a, b) => a.date.localeCompare(b.date));
-    days.forEach(d => renderDailyRow(d));
-  }
-
-  function renderDailyRow(data) {
-    const tbody = document.querySelector("#dailyTracker tbody");
-    if (document.getElementById("row_" + data.date)) return;
-    const row = document.createElement("tr");
-    row.id = "row_" + data.date;
-    row.innerHTML = `
-      <td>${data.date}</td>
-      <td><input type="checkbox" ${data.prayer ? "checked" : ""} onclick="updateCheckbox(this,'prayer','${data.date}')"></td>
-      <td><input type="checkbox" ${data.mindset ? "checked" : ""} onclick="updateCheckbox(this,'mindset','${data.date}')"></td>
-      <td>${data.prioritize ? '<span style="color:green;">✔</span>' : ''}</td>
-      <td><input type="checkbox" ${data.visualize ? "checked" : ""} onclick="updateCheckbox(this,'visualize','${data.date}')"></td>
-      <td><input type="checkbox" ${data.exercise ? "checked" : ""} onclick="updateCheckbox(this,'exercise','${data.date}')"></td>
-      <td><input type="checkbox" ${data.tracking ? "checked" : ""} onclick="updateCheckbox(this,'tracking','${data.date}')"></td>
-      <td>${data.habitSlips || 0}</td>
-      <td>${data.jobHours || 0}</td>
-      <td>${data.impactHours || 0}</td>
-      <td>${calculateScore(data)}</td>
-    `;
-    tbody.appendChild(row);
-  }
-
-  window.updateCheckbox = function (el, field, date) {
-    db.collection("daily").doc(`${currentUser.uid}_${date}`).set({ [field]: el.checked, uid: currentUser.uid, date: date }, { merge: true });
-  }
-
-  window.addDay = async function () {
-    const today = new Date().toISOString().split("T")[0];
-    const docRef = db.collection("daily").doc(`${currentUser.uid}_${today}`);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      const data = { uid: currentUser.uid, date: today, prayer: false, mindset: false, prioritize: false, visualize: false, exercise: false, tracking: false, habitSlips: 0, jobHours: 0, impactHours: 0 };
-      await docRef.set(data);
-      renderDailyRow(data);
+  function updateLevelSystem(){
+    document.getElementById("weeklyScore").innerText = "Weekly Score: " + weeklyPoints;
+    let nextRangeMin = 0, nextRangeMax = 0;
+    if(currentLevel===1){ nextRangeMin=112; nextRangeMax=125; }
+    if(currentLevel===2){ nextRangeMin=126; nextRangeMax=140; }
+    if(currentLevel===3){ nextRangeMin=141; nextRangeMax=170; }
+    if(weeklyPoints>=nextRangeMin && weeklyPoints<=nextRangeMax){
+      streak++;
+      if(streak>=4){ currentLevel++; streak=0; }
     } else {
-      renderDailyRow(doc.data());
+      streak=0;
     }
+    document.getElementById("levelDisplay").innerText = "Level: " + currentLevel;
+    document.getElementById("streakDisplay").innerText = "Progress Toward Next Level: " + streak + "/4 weeks";
   }
 
-  // --- PRIORITIZATION TASKS ---
-  function loadTasks() { dailyTasks = {}; document.getElementById("taskInputs").innerHTML = ""; }
-  window.addTask = function () {
-    const taskName = document.getElementById("newTask").value.trim();
-    if (!taskName) return;
-    dailyTasks[taskName] = false;
-    renderTasks();
-    document.getElementById("newTask").value = "";
-  }
-  function renderTasks() {
-    const container = document.getElementById("taskInputs");
-    container.innerHTML = "";
-    const today = new Date().toISOString().split("T")[0];
-    Object.keys(dailyTasks).forEach(name => {
-      const div = document.createElement("div");
-      const checked = dailyTasks[name] ? 'checked' : '';
-      div.innerHTML = `<input type="checkbox" ${checked} onchange="toggleTask('${name}')"> ${name}`;
-      container.appendChild(div);
-    });
-    const allChecked = Object.values(dailyTasks).every(v => v);
-    db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ prioritize: allChecked }, { merge: true });
-  }
-  window.toggleTask = function (name) { dailyTasks[name] = !dailyTasks[name]; renderTasks(); }
-
-  // --- HABITS ---
-  function loadHabits() {
-    const habitList = document.getElementById("habitList");
-    habitList.innerHTML = "";
-    db.collection("users").doc(currentUser.uid).get().then(doc => {
-      if (doc.exists) {
-        const habits = doc.data().habits || {};
-        Object.keys(habits).forEach(name => { renderHabit(name, habits[name]); });
-      }
-    });
-  }
-  function renderHabit(name, data) {
-    const habitList = document.getElementById("habitList");
-    const div = document.createElement("div");
-    const lastSlip = new Date(data.lastSlip);
-    const today = new Date();
-    const diff = Math.floor((today - lastSlip) / (1000 * 60 * 60 * 24));
-    div.id = "habit_" + name;
-    div.innerHTML = `<span>${name} (Days since last slip: ${diff}) </span>
-      <button class="danger" onclick="markSlip('${name}')">Mark Slip</button>
-      <button class="secondary" onclick="deleteHabit('${name}')">Delete</button>`;
-    habitList.appendChild(div);
-  }
-  window.addHabit = function () {
-    const name = document.getElementById("newHabit").value.trim();
-    if (!name) return;
-    const docRef = db.collection("users").doc(currentUser.uid);
-    docRef.set({ habits: { [name]: { lastSlip: new Date().toISOString(), slipsCount: 0 } } }, { merge: true }).then(() => { renderHabit(name, { lastSlip: new Date().toISOString(), slipsCount: 0 }); });
-    document.getElementById("newHabit").value = "";
-  }
-  window.markSlip = function (name) {
-    const docRef = db.collection("users").doc(currentUser.uid);
-    docRef.get().then(doc => {
-      const habits = doc.data().habits;
-      habits[name].lastSlip = new Date().toISOString();
-      habits[name].slipsCount += 1;
-      docRef.set({ habits: habits }, { merge: true });
-      renderHabit(name, habits[name]);
-    });
-  }
-  window.deleteHabit = function (name) {
-    const docRef = db.collection("users").doc(currentUser.uid);
-    docRef.get().then(doc => {
-      const habits = doc.data().habits;
-      delete habits[name];
-      docRef.set({ habits: habits }, { merge: true });
-      document.getElementById("habit_" + name).remove();
-    });
-  }
-
-  // --- TIMERS ---
-  window.startJobTimer = function () { clearInterval(jobInterval); jobInterval = setInterval(() => { jobMinutes++; document.getElementById("jobTimer").innerText = jobMinutes; updateTimer('jobHours', jobMinutes); }, 60000); }
-  window.stopJobTimer = function () { clearInterval(jobInterval); }
-  window.startImpactTimer = function () { clearInterval(impactInterval); impactInterval = setInterval(() => { impactMinutes++; document.getElementById("impactTimer").innerText = impactMinutes; updateTimer('impactHours', impactMinutes); }, 60000); }
-  window.stopImpactTimer = function () { clearInterval(impactInterval); }
-  function updateTimer(field, value) { const today = new Date().toISOString().split("T")[0]; db.collection("daily").doc(`${currentUser.uid}_${today}`).set({ [field]: value }, { merge: true }); }
-
-}
+  // TODO: integrate addDay, habits, timers with Firestore (Step 4 onwards)
 </script>
 </body>
 </html>
