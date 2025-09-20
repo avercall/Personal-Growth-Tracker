@@ -1,118 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Personal Growth Tracker</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f4f7f9; margin:0; padding:20px; text-align:center; }
-  h1,h3 { color:#2c3e50; }
-  
-  #appDiv, #loginDiv { max-width: 900px; margin: auto; }
-  
-  .card { background:white; border-radius:10px; box-shadow:0 4px 8px rgba(0,0,0,0.1); padding:20px; margin:20px 0; }
-  
-  table { width: 100%; border-collapse: collapse; margin-top: 15px; border-radius:10px; overflow:hidden; }
-  th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align:center; }
-  th { background-color:#3498db; color:white; }
-  tr:hover { background-color: #f1f1f1; }
-
-  input[type="checkbox"] { transform: scale(1.4); cursor:pointer; }
-  button { padding:10px 18px; margin:5px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; transition:0.3s; }
-  button:hover { opacity:0.9; }
-  
-  button.primary { background-color:#3498db; color:white; }
-  button.secondary { background-color:#2ecc71; color:white; }
-  button.danger { background-color:#e74c3c; color:white; }
-
-  canvas { background:white; border-radius:10px; padding:10px; margin-top:20px; box-shadow:0 4px 6px rgba(0,0,0,0.1); }
-
-  input { padding:10px; width:80%; margin:5px 0; border-radius:6px; border:1px solid #ccc; }
-
-  .timer span { font-weight:bold; font-size:1.2em; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Growth Tracker - Test Mode</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f9fafb; color: #333; }
+    h1,h2 { color:#222; }
+    section { background:#fff; padding:20px; margin-bottom:20px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    button { margin:5px; padding:10px 15px; border:none; border-radius:8px; background:#2563eb; color:white; cursor:pointer; transition:0.2s; }
+    button:hover { background:#1d4ed8; }
+    textarea,input { width:100%; padding:8px; margin:8px 0; border-radius:6px; border:1px solid #ccc; }
+    ul { list-style:none; padding:0; }
+    li { background:#f3f4f6; margin:5px 0; padding:10px; border-radius:6px; }
+    .timer { font-size:1.5rem; font-weight:bold; margin:10px 0; }
+  </style>
 </head>
 <body>
+  <h1>🌱 Personal Growth Tracker - Test Mode</h1>
 
-<div id="loginDiv" class="card">
-  <h2>Login</h2>
-  <input type="email" id="email" placeholder="Email"><br>
-  <input type="password" id="password" placeholder="Password"><br>
-  <button class="primary" onclick="login()">Login</button>
-  <button class="secondary" onclick="signup()">Sign Up</button>
-  <button class="primary" onclick="googleLogin()">Login with Google</button>
-</div>
+  <section>
+    <h2>⏱ Job Hours</h2>
+    <p id="timer" class="timer">00:00:00</p>
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+    <button id="logBtn">Log</button>
+    <ul id="logList"></ul>
+  </section>
 
-<div id="appDiv" class="hidden">
-  <h1>Personal Growth Tracker</h1>
+  <section>
+    <h2>✨ Magic Questions</h2>
+    <button id="generateBtn">Generate ✨</button>
+    <p id="question"></p>
+  </section>
 
-  <div class="card">
-    <h3>Daily Tracker</h3>
-    <table id="dailyTracker">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Prayer</th>
-          <th>Mindset</th>
-          <th>Prioritize</th>
-          <th>Visualize</th>
-          <th>Exercise</th>
-          <th>Tracking</th>
-          <th>Habit Slips</th>
-          <th>Job Hours</th>
-          <th>Impact Hours</th>
-          <th>Daily Score</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <section>
+    <h2>📓 Daily Reflection</h2>
+    <textarea id="reflection" placeholder="Write your reflection..."></textarea>
+    <button id="saveReflection">Save Reflection</button>
+    <ul id="reflectionList"></ul>
+  </section>
 
-  <div class="card">
-    <h3>Prioritization Checklist</h3>
-    <input type="checkbox" class="taskCheckbox"> Task 1<br>
-    <input type="checkbox" class="taskCheckbox"> Task 2<br>
-    <input type="checkbox" class="taskCheckbox"> Task 3<br>
-  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
 
-  <div class="card">
-    <h3>Habit Breaking</h3>
-    <button class="danger" onclick="addHabitSlip()">Mark Habit Slip</button>
-  </div>
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-  <div class="card timer">
-    <h3>Timers</h3>
-    Job Hours: <span id="jobTimer">0</span> minutes
-    <button class="primary" onclick="startJobTimer()">Start Job</button>
-    <button class="secondary" onclick="stopJobTimer()">Stop Job</button><br><br>
-    Impact Hours: <span id="impactTimer">0</span> minutes
-    <button class="primary" onclick="startImpactTimer()">Start Impact</button>
-    <button class="secondary" onclick="stopImpactTimer()">Stop Impact</button>
-  </div>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  <div class="card">
-    <h3>Charts</h3>
-    <canvas id="dailyChart" width="400" height="200"></canvas>
-    <canvas id="weeklyChart" width="400" height="200"></canvas>
-  </div>
+    // --- Timer ---
+    let timerInterval;
+    let startTime;
+    const timerDisplay = document.getElementById("timer");
+    const logList = document.getElementById("logList");
 
-  <div class="card">
-    <h3>Levels & Streak</h3>
-    <p>Current Level: <span id="level">1</span></p>
-    <p>Level-Up Streak: <span id="streak">0</span> weeks</p>
-  </div>
+    document.getElementById("startBtn").onclick = () => {
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 1000);
+    };
 
-  <button class="primary" onclick="logout()">Logout</button>
-</div>
+    document.getElementById("stopBtn").onclick = () => clearInterval(timerInterval);
 
-<script>
-  // Paste the full JS logic from previous version here, unchanged
-  // This includes Firebase config, auth, daily tracker, scoring, timers, charts, levels, streaks, and prioritization logic
-</script>
+    document.getElementById("logBtn").onclick = async () => {
+      clearInterval(timerInterval);
+      const duration = timerDisplay.textContent;
+      const entry = `Worked for ${duration}`;
+      addLogToPage(entry);
 
+      await addDoc(collection(db, "logs"), {
+        entry,
+        date: new Date()
+      });
+    };
+
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      const hrs = String(Math.floor(elapsed / 3600000)).padStart(2, "0");
+      const mins = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, "0");
+      const secs = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
+      timerDisplay.textContent = `${hrs}:${mins}:${secs}`;
+    }
+
+    function addLogToPage(text) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      logList.appendChild(li);
+    }
+
+    // --- Magic Questions ---
+    const questions = [
+      "What did I learn today?",
+      "How can I improve tomorrow?",
+      "What am I grateful for?",
+      "What challenged me today?",
+      "What am I proud of?"
+    ];
+    document.getElementById("generateBtn").onclick = () => {
+      const q = questions[Math.floor(Math.random() * questions.length)];
+      document.getElementById("question").textContent = q;
+    };
+
+    // --- Daily Reflection ---
+    const reflectionInput = document.getElementById("reflection");
+    const reflectionList = document.getElementById("reflectionList");
+
+    document.getElementById("saveReflection").onclick = async () => {
+      const text = reflectionInput.value.trim();
+      if (!text) return;
+      addReflectionToPage(text);
+      reflectionInput.value = "";
+
+      await addDoc(collection(db, "reflections"), {
+        text,
+        date: new Date()
+      });
+    };
+
+    function addReflectionToPage(text) {
+      const li = document.createElement("li");
+      li.textContent = text;
+      reflectionList.appendChild(li);
+    }
+
+    // --- Load previous data ---
+    async function loadData() {
+      const logsSnapshot = await getDocs(collection(db, "logs"));
+      logsSnapshot.forEach(doc => addLogToPage(doc.data().entry));
+
+      const reflectionsSnapshot = await getDocs(collection(db, "reflections"));
+      reflectionsSnapshot.forEach(doc => addReflectionToPage(doc.data().text));
+    }
+
+    loadData();
+  </script>
 </body>
 </html>
