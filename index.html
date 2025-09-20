@@ -1,202 +1,406 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Growth Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
-        .container { max-width: 900px; }
-        .card {
-            background-color: white;
-            border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            padding: 1.5rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 15px 20px -5px rgba(0,0,0,0.1),0 6px 8px -3px rgba(0,0,0,0.05);}
-        input[type="number"] { -moz-appearance: textfield; text-align: center; }
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    </style>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-<div class="container mx-auto p-4 md:p-8">
-
-    <!-- Authentication Section -->
-    <div id="auth-section" class="card mb-6 text-center">
-        <h1 class="text-2xl font-bold mb-4">Sign In / Sign Up</h1>
-        <input type="email" id="email" placeholder="Email" class="border-b border-gray-300 mb-2 p-1"><br>
-        <input type="password" id="password" placeholder="Password" class="border-b border-gray-300 mb-2 p-1"><br>
-        <button id="signup-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg mr-2">Sign Up</button>
-        <button id="login-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Log In</button><br><br>
-        <button id="google-signin-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg">Sign In with Google</button>
-    </div>
-
-    <!-- Main App Section -->
-    <div id="app-section" class="hidden">
-
-        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">Personal Growth Tracker</h1>
-
-        <!-- Daily Tracker Section -->
-        <div class="card mb-6">
-            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">Daily Tracker</h2>
-            <div class="overflow-x-auto">
-                <table id="daily-table" class="min-w-full table-auto border-collapse border border-gray-300 text-center">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border p-2">Date</th>
-                            <th class="border p-2">Prayer</th>
-                            <th class="border p-2">Mindset</th>
-                            <th class="border p-2">Prioritize</th>
-                            <th class="border p-2">Visualize</th>
-                            <th class="border p-2">Exercise</th>
-                            <th class="border p-2">Tracking</th>
-                            <th class="border p-2">Habit Slips</th>
-                            <th class="border p-2">Job Hours</th>
-                            <th class="border p-2">Impact Hours</th>
-                            <th class="border p-2">Daily Score</th>
-                        </tr>
-                    </thead>
-                    <tbody id="daily-table-body"></tbody>
-                </table>
-            </div>
-            <div class="mt-4 text-center">
-                <button id="add-day-btn" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 active:scale-95 transition duration-300">Add Day</button>
-            </div>
-        </div>
-
-        <!-- Prioritization Checklist Section -->
-        <div class="card mt-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Prioritization Checklist</h2>
-            <div id="prioritization-list" class="space-y-4">
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" class="task-checkbox">
-                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 1">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" class="task-checkbox">
-                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 2">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <input type="checkbox" class="task-checkbox">
-                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 3">
-                </div>
-            </div>
-        </div>
-
-        <!-- Habit Breaking Section -->
-        <div class="card mt-6 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-700 text-center">Habit Breaking</h2>
-                <button id="add-habit-btn" class="bg-green-500 text-white text-sm font-bold py-1 px-3 rounded-lg hover:bg-green-600 active:scale-95 transition duration-300">Add Habit</button>
-            </div>
-            <div id="habit-breaking-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-        </div>
-
-        <!-- Weekly Total, Growth Level, Level Up Streak -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-6">
-            <div class="card text-center">
-                <h2 class="text-lg font-bold text-gray-700 mb-2">Weekly Total</h2>
-                <p id="weekly-total" class="text-4xl font-extrabold text-indigo-600">0</p>
-            </div>
-            <div class="card text-center">
-                <h2 class="text-lg font-bold text-gray-700 mb-2">Growth Level <button id="explain-level-btn" class="text-sm text-indigo-500 hover:text-indigo-700 font-normal active:scale-95 transition duration-300">What's this? ✨</button></h2>
-                <p id="crusade-level" class="text-2xl font-bold text-teal-600">Below Growth Level One</p>
-                <p id="level-explanation" class="text-xs text-gray-500 mt-2 italic hidden"></p>
-            </div>
-            <div class="card text-center">
-                <h2 class="text-lg font-bold text-gray-700 mb-2">Level Up Streak</h2>
-                <p id="level-streak" class="text-4xl font-extrabold text-blue-600">0</p>
-            </div>
-        </div>
-
-        <!-- Charts -->
-        <div class="card mt-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Progress Charts</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
-                <canvas id="weeklyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Firebase SDK -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Growth Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="module">
-    // Firebase imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-    import { getFirestore, collection, addDoc, doc, setDoc, getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+  // =======================
+  // Firebase Imports
+  // =======================
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
-    // Firebase config
-    const firebaseConfig = {
-        apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-        authDomain: "growth-tracker-a367c.firebaseapp.com",
-        projectId: "growth-tracker-a367c",
-        storageBucket: "growth-tracker-a367c.firebasestorage.app",
-        messagingSenderId: "277469925642",
-        appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-        measurementId: "G-DPYPWBMHLB"
-    };
+  // =======================
+  // Firebase Config
+  // =======================
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+    authDomain: "growth-tracker-a367c.firebaseapp.com",
+    projectId: "growth-tracker-a367c",
+    storageBucket: "growth-tracker-a367c.firebasestorage.app",
+    messagingSenderId: "277469925642",
+    appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+    measurementId: "G-DPYPWBMHLB"
+  };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const db = getFirestore(app);
-    const auth = getAuth();
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const auth = getAuth();
+  const db = getFirestore();
 
-    const googleProvider = new GoogleAuthProvider();
+  // =======================
+  // Elements
+  // =======================
+  let currentUserId = null;
 
-    const authSection = document.getElementById('auth-section');
+  window.addEventListener('DOMContentLoaded', () => {
+
+    const loginSection = document.getElementById('login-section');
     const appSection = document.getElementById('app-section');
 
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
-    const signupBtn = document.getElementById('signup-btn');
     const loginBtn = document.getElementById('login-btn');
-    const googleBtn = document.getElementById('google-signin-btn');
+    const signupBtn = document.getElementById('signup-btn');
+    const googleBtn = document.getElementById('google-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    // =======================
+    // Auth State Change
+    // =======================
+    onAuthStateChanged(auth, user => {
+      if(user){
+        currentUserId = user.uid;
+        loginSection.style.display = 'none';
+        appSection.style.display = 'block';
+        loadUserData();
+      } else {
+        loginSection.style.display = 'block';
+        appSection.style.display = 'none';
+      }
+    });
+
+    // =======================
+    // Email/Password Login
+    // =======================
+    loginBtn.addEventListener('click', async () => {
+      try {
+        await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+      } catch(e){
+        alert(e.message);
+      }
+    });
 
     signupBtn.addEventListener('click', async () => {
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-            alert('Sign up successful');
-        } catch (e) {
-            alert(e.message);
-        }
+      try {
+        await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+      } catch(e){
+        alert(e.message);
+      }
     });
 
-    loginBtn.addEventListener('click', async () => {
-        try {
-            const userCredential = await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-            alert('Login successful');
-        } catch (e) {
-            alert(e.message);
-        }
-    });
-
+    // =======================
+    // Google Login
+    // =======================
     googleBtn.addEventListener('click', async () => {
-        try {
-            await signInWithPopup(auth, googleProvider);
-            alert('Google Sign In successful');
-        } catch(e) { alert(e.message); }
+      const provider = new GoogleAuthProvider();
+      try{
+        await signInWithPopup(auth, provider);
+      } catch(e){
+        alert(e.message);
+      }
     });
 
-    onAuthStateChanged(auth, async (user) => {
-        if(user){
-            authSection.classList.add('hidden');
-            appSection.classList.remove('hidden');
-            // Load user data here...
-        } else {
-            authSection.classList.remove('hidden');
-            appSection.classList.add('hidden');
+    logoutBtn.addEventListener('click', async () => {
+      await signOut(auth);
+    });
+
+    // =======================
+    // Daily Tracker Logic
+    // =======================
+    const trackerContainer = document.getElementById('tracker-table-container');
+    const addDayBtn = document.getElementById('add-day-btn');
+    let dailyData = [];
+
+    function createDailyTable(){
+      trackerContainer.innerHTML = '';
+      const table = document.createElement('table');
+      table.className = "table-auto w-full border-collapse border border-gray-300";
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      ['Date','Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','Habit Slips','Job Hours','Impact Hours','Daily Score'].forEach(col => {
+        const th = document.createElement('th');
+        th.className = "border px-2 py-1 bg-gray-200 text-gray-700";
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      dailyData.forEach((day,index) => {
+        const tr = document.createElement('tr');
+        // Date
+        const tdDate = document.createElement('td');
+        tdDate.className = "border px-2 py-1 text-center";
+        tdDate.textContent = day.date;
+        tr.appendChild(tdDate);
+        // Columns 2-7 (checkboxes)
+        ['prayer','mindset','prioritize','visualize','exercise','tracking'].forEach(key=>{
+          const td = document.createElement('td');
+          td.className = "border px-2 py-1 text-center";
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = day[key];
+          cb.addEventListener('change',()=>{ day[key] = cb.checked; calculateDailyScore(day,tr); updateFirestore(); });
+          td.appendChild(cb);
+          tr.appendChild(td);
+        });
+        // Habit slips numeric
+        const tdHabit = document.createElement('td');
+        tdHabit.className = "border px-2 py-1 text-center";
+        const habitInput = document.createElement('input');
+        habitInput.type = 'number';
+        habitInput.value = day.habitSlips;
+        habitInput.className = "w-16 text-center border border-gray-300 rounded";
+        habitInput.addEventListener('input',()=>{ day.habitSlips = Number(habitInput.value); calculateDailyScore(day,tr); updateFirestore(); });
+        tdHabit.appendChild(habitInput);
+        tr.appendChild(tdHabit);
+        // Job hours numeric
+        const tdJob = document.createElement('td');
+        tdJob.className = "border px-2 py-1 text-center";
+        const jobInput = document.createElement('input');
+        jobInput.type = 'number';
+        jobInput.value = day.jobHours;
+        jobInput.className = "w-16 text-center border border-gray-300 rounded";
+        jobInput.addEventListener('input',()=>{ day.jobHours = Number(jobInput.value); calculateDailyScore(day,tr); updateFirestore(); });
+        tdJob.appendChild(jobInput);
+        tr.appendChild(tdJob);
+        // Impact hours numeric
+        const tdImpact = document.createElement('td');
+        tdImpact.className = "border px-2 py-1 text-center";
+        const impactInput = document.createElement('input');
+        impactInput.type = 'number';
+        impactInput.value = day.impactHours;
+        impactInput.className = "w-16 text-center border border-gray-300 rounded";
+        impactInput.addEventListener('input',()=>{ day.impactHours = Number(impactInput.value); calculateDailyScore(day,tr); updateFirestore(); });
+        tdImpact.appendChild(impactInput);
+        tr.appendChild(tdImpact);
+        // Daily score
+        const tdScore = document.createElement('td');
+        tdScore.className = "border px-2 py-1 text-center font-bold text-indigo-600";
+        tdScore.textContent = day.dailyScore;
+        tr.appendChild(tdScore);
+
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      trackerContainer.appendChild(table);
+    }
+
+    function calculateDailyScore(day,tr){
+      let score = 0;
+      if(day.exercise) score +=3;
+      if(day.tracking) score +=3;
+      score -= day.habitSlips || 0;
+      score += day.jobHours || 0;
+      score += 3*(day.impactHours||0);
+      // prioritize checkbox auto-check logic
+      if(prioritizeChecklist.every(cb=>cb.checked)){
+        day.prioritize = true;
+      }
+      tr.querySelectorAll('td')[10].textContent = score;
+      day.dailyScore = score;
+      updateCharts();
+    }
+
+    addDayBtn.addEventListener('click',()=>{
+      const today = new Date().toLocaleDateString();
+      dailyData.push({date:today,prayer:false,mindset:false,prioritize:false,visualize:false,exercise:false,tracking:false,habitSlips:0,jobHours:0,impactHours:0,dailyScore:0});
+      createDailyTable();
+      updateFirestore();
+    });
+
+    // =======================
+    // Prioritization Checklist
+    // =======================
+    const prioritizeChecklist = document.querySelectorAll('.task-checkbox');
+    prioritizeChecklist.forEach(cb=>{
+      cb.addEventListener('change',()=>{
+        if(Array.from(prioritizeChecklist).every(c=>c.checked)){
+          // check the prioritize box in the last row
+          if(dailyData.length>0) dailyData[dailyData.length-1].prioritize=true;
+          createDailyTable();
+          updateFirestore();
         }
+      });
     });
 
+    // =======================
+    // Habit Breaking Section
+    // =======================
+    const habitContainer = document.getElementById('habit-breaking-container');
+    const addHabitBtn = document.getElementById('add-habit-btn');
+    let habits = [];
+
+    function renderHabits(){
+      habitContainer.innerHTML = '';
+      habits.forEach((habit,index)=>{
+        const div = document.createElement('div');
+        div.className = 'bg-gray-50 p-4 rounded-lg shadow flex flex-col items-center';
+        div.innerHTML = `
+          <input data-index="${index}" type="text" class="habit-name-input text-center border-b border-gray-300 focus:outline-none mb-2" value="${habit.name}" placeholder="Habit name"/>
+          <p>Current Streak: <span class="habit-streak" data-index="${index}">${habit.streak}</span></p>
+          <div class="flex space-x-2 mt-2">
+            <button data-index="${index}" class="habit-reset-btn bg-yellow-400 text-white px-2 py-1 rounded-lg text-sm">Reset</button>
+            <button data-index="${index}" class="delete-habit-btn bg-red-500 text-white px-2 py-1 rounded-lg text-sm">Delete</button>
+          </div>
+          <label class="mt-2 flex items-center space-x-2 text-sm">
+            <input data-index="${index}" type="checkbox" class="habit-slip-checkbox"/>
+            Mark Slip
+          </label>
+        `;
+        habitContainer.appendChild(div);
+      });
+    }
+
+    addHabitBtn.addEventListener('click',()=>{
+      habits.push({name:'',streak:0});
+      renderHabits();
+    });
+
+    habitContainer.addEventListener('click',(e)=>{
+      const index = e.target.dataset.index;
+      if(e.target.classList.contains('delete-habit-btn')){
+        habits.splice(index,1);
+        renderHabits();
+      }
+      if(e.target.classList.contains('habit-reset-btn')){
+        habits[index].streak=0;
+        renderHabits();
+      }
+    });
+
+    habitContainer.addEventListener('change',(e)=>{
+      const index = e.target.dataset.index;
+      if(e.target.classList.contains('habit-slip-checkbox')){
+        if(e.target.checked){
+          // add to habit slips of the last daily tracker row
+          if(dailyData.length>0){
+            dailyData[dailyData.length-1].habitSlips +=1;
+            createDailyTable();
+            updateFirestore();
+          }
+        }
+      }
+      if(e.target.classList.contains('habit-name-input')){
+        habits[index].name = e.target.value;
+      }
+    });
+
+    // =======================
+    // Charts
+    // =======================
+    const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+
+    let dailyChart = new Chart(dailyCtx,{type:'bar',data:{labels:[],datasets:[{label:'Daily Score',data:[],backgroundColor:'rgba(99,102,241,0.7)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+    let weeklyChart = new Chart(weeklyCtx,{type:'line',data:{labels:[],datasets:[{label:'Weekly Score',data:[],borderColor:'rgba(16,185,129,1)',backgroundColor:'rgba(16,185,129,0.2)'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+
+    function updateCharts(){
+      const labels = dailyData.map(d=>d.date);
+      const data = dailyData.map(d=>d.dailyScore);
+      dailyChart.data.labels = labels;
+      dailyChart.data.datasets[0].data = data;
+      dailyChart.update();
+      // weekly
+      const weekScores = [];
+      for(let i=0;i<dailyData.length;i+=7){
+        const weekSum = dailyData.slice(i,i+7).reduce((acc,d)=>acc+(d.dailyScore||0),0);
+        weekScores.push(weekSum);
+      }
+      weeklyChart.data.labels = weekScores.map((_,i)=>`Week ${i+1}`);
+      weeklyChart.data.datasets[0].data = weekScores;
+      weeklyChart.update();
+    }
+
+    // =======================
+    // Firestore Sync
+    // =======================
+    async function updateFirestore(){
+      if(!currentUserId) return;
+      try{
+        await setDoc(doc(db,"users",currentUserId),{dailyData,habits});
+      } catch(e){ console.error(e);}
+    }
+
+    async function loadUserData(){
+      if(!currentUserId) return;
+      try{
+        const docSnap = await getDoc(doc(db,"users",currentUserId));
+        if(docSnap.exists()){
+          const data = docSnap.data();
+          dailyData = data.dailyData || [];
+          habits = data.habits || [];
+        } else {
+          dailyData = [];
+          habits = [];
+        }
+        createDailyTable();
+        renderHabits();
+      } catch(e){ console.error(e);}
+    }
+
+  }); // DOMContentLoaded
 </script>
+<style>
+body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+input[type=number] {-moz-appearance:textfield;text-align:center;}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;}
+</style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+<!-- Login Section -->
+<div id="login-section" class="w-full max-w-md p-6 bg-white rounded-lg shadow-md text-center">
+  <h1 class="text-2xl font-bold mb-4">Sign In / Sign Up</h1>
+  <input id="email" type="email" placeholder="Email" class="mb-2 w-full p-2 border rounded">
+  <input id="password" type="password" placeholder="Password" class="mb-2 w-full p-2 border rounded">
+  <div class="flex justify-between mb-2">
+    <button id="login-btn" class="bg-indigo-500 text-white px-4 py-2 rounded">Login</button>
+    <button id="signup-btn" class="bg-green-500 text-white px-4 py-2 rounded">Sign Up</button>
+  </div>
+  <button id="google-btn" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-2">Sign in with Google</button>
+</div>
+
+<!-- App Section -->
+<div id="app-section" class="hidden w-full max-w-5xl">
+
+  <div class="flex justify-end mb-2">
+    <button id="logout-btn" class="bg-gray-500 text-white px-4 py-2 rounded">Logout</button>
+  </div>
+
+  <!-- Daily Tracker -->
+  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+    <h2 class="text-xl font-bold mb-2">Daily Tracker</h2>
+    <div id="tracker-table-container" class="overflow-x-auto mb-2"></div>
+    <button id="add-day-btn" class="bg-indigo-500 text-white px-4 py-2 rounded">Add Day</button>
+  </div>
+
+  <!-- Prioritization Checklist -->
+  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+    <h2 class="text-xl font-bold mb-2">Prioritization Checklist</h2>
+    <div class="space-y-2">
+      <div class="flex items-center space-x-2"><input type="checkbox" class="task-checkbox"><input type="text" placeholder="Task 1" class="flex-1 border-b p-1"></div>
+      <div class="flex items-center space-x-2"><input type="checkbox" class="task-checkbox"><input type="text" placeholder="Task 2" class="flex-1 border-b p-1"></div>
+      <div class="flex items-center space-x-2"><input type="checkbox" class="task-checkbox"><input type="text" placeholder="Task 3" class="flex-1 border-b p-1"></div>
+    </div>
+  </div>
+
+  <!-- Habit Breaking -->
+  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-xl font-bold">Habit Breaking</h2>
+      <button id="add-habit-btn" class="bg-green-500 text-white px-2 py-1 rounded">Add Habit</button>
+    </div>
+    <div id="habit-breaking-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="mb-6 p-4 bg-white rounded-lg shadow">
+    <h2 class="text-xl font-bold mb-2">Daily Chart</h2>
+    <canvas id="dailyChart" class="bg-gray-50 rounded-lg p-2 mb-4"></canvas>
+    <h2 class="text-xl font-bold mb-2">Weekly Chart</h2>
+    <canvas id="weeklyChart" class="bg-gray-50 rounded-lg p-2"></canvas>
+  </div>
+
+</div>
 </body>
 </html>
