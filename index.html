@@ -178,6 +178,27 @@
     let userId;
     let myChart = null; // Store the Chart.js instance
 
+    // --- Habit Breaking Logic ---
+    const habitsDocRef = () => doc(db, `/artifacts/${appId}/users/${userId}/habit_breaking`, 'habits');
+
+    const addHabit = async () => {
+        console.log("Attempting to add new habit...");
+        try {
+            if (!db || !userId) {
+                console.error("Database or user not ready.");
+                return;
+            }
+            const docSnap = await getDoc(habitsDocRef());
+            const currentHabits = docSnap.data()?.habits || [];
+            currentHabits.push({ name: '', lastSlipDate: null, longestStreak: 0 });
+            await setDoc(habitsDocRef(), { habits: currentHabits });
+            console.log("Habit successfully added to Firestore.");
+        } catch (error) {
+            console.error("Error adding new habit:", error);
+        }
+    };
+
+
     document.addEventListener('DOMContentLoaded', async () => {
         const trackerTableContainer = document.getElementById('tracker-table-container');
         const addDayBtn = document.getElementById('add-day-btn');
@@ -219,6 +240,10 @@
             elapsedTime: 0
         };
 
+        // --- Event Listeners for static buttons ---
+        // This is a crucial fix to ensure the button listener is always attached.
+        addHabitBtn.addEventListener('click', addHabit);
+
         // --- Firebase Initialization and Authentication ---
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
@@ -230,6 +255,9 @@
                 userId = user.uid;
                 userIdDisplay.textContent = `User ID: ${userId}`;
                 console.log("Firebase initialized and user authenticated:", userId);
+
+                // IMPORTANT: Call this function on auth state change to ensure docs are always present
+                await createTodayDocs();
                 
                 // Once authenticated, start listening to Firestore data
                 const crusadeCollection = collection(db, `/artifacts/${appId}/users/${userId}/crusade_data`);
@@ -740,9 +768,6 @@
             });
         };
 
-        // --- Habit Breaking Logic ---
-        const habitsDocRef = () => doc(db, `/artifacts/${appId}/users/${userId}/habit_breaking`, 'habits');
-
         const renderHabitBreakingSection = (habits) => {
             habitBreakingContainer.innerHTML = '';
             const today = getTodayDateString();
@@ -809,14 +834,6 @@
                 currentHabits[index][field] = value;
                 await setDoc(habitsDocRef(), { habits: currentHabits });
             }
-        };
-
-        const addHabit = async () => {
-            if (!db || !userId) return;
-            const docSnap = await getDoc(habitsDocRef());
-            const currentHabits = docSnap.data()?.habits || [];
-            currentHabits.push({ name: '', lastSlipDate: null, longestStreak: 0 });
-            await setDoc(habitsDocRef(), { habits: currentHabits });
         };
 
         const deleteHabit = async (index) => {
@@ -979,8 +996,6 @@
             explainLevelBtn.disabled = false;
         });
         
-        // --- Add Habit Button Listener ---
-        addHabitBtn.addEventListener('click', addHabit);
     });
 </script>
 
