@@ -39,7 +39,20 @@
         <!-- Prioritization Checklist Section -->
         <div class="card mt-6 mb-6">
             <h2 class="text-xl font-bold text-gray-700 mb-2 text-center">Prioritization Checklist</h2>
-            <div id="prioritization-list" class="space-y-4"></div>
+            <div id="prioritization-list" class="space-y-4">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 1">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 2">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" class="task-checkbox">
+                    <input type="text" class="task-input flex-1 border-b border-gray-300 focus:outline-none p-1" placeholder="Task 3">
+                </div>
+            </div>
         </div>
 
         <!-- Timers Section -->
@@ -238,6 +251,20 @@
                 const el = document.getElementById('level-explanation');
                 el.textContent="Growth Level shows your progress based on habits, hours logged, and streaks. Keep up your consistency!";
                 el.classList.toggle('hidden');
+            });
+
+            // ==========================
+            // Prioritization Checklist Logic
+            // ==========================
+            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const input = e.target.nextElementSibling;
+                    if(e.target.checked){
+                        input.classList.add('line-through', 'text-gray-400');
+                    } else {
+                        input.classList.remove('line-through', 'text-gray-400');
+                    }
+                });
             });
 
         });
