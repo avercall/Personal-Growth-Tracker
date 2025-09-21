@@ -11,13 +11,13 @@ import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://
 
 // --- Firebase config ---
 const firebaseConfig = {
-apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-authDomain: "growth-tracker-a367c.firebaseapp.com",
-projectId: "growth-tracker-a367c",
-storageBucket: "growth-tracker-a367c.firebasestorage.app",
-messagingSenderId: "277469925642",
-appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-measurementId: "G-DPYPWBMHLB"
+  apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+  authDomain: "growth-tracker-a367c.firebaseapp.com",
+  projectId: "growth-tracker-a367c",
+  storageBucket: "growth-tracker-a367c.firebasestorage.app",
+  messagingSenderId: "277469925642",
+  appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+  measurementId: "G-DPYPWBMHLB"
 };
 
 const appFirebase = initializeApp(firebaseConfig);
@@ -25,7 +25,7 @@ const auth = getAuth(appFirebase);
 const db = getFirestore(appFirebase);
 
 // --- Global state ---
-let dailyRows={}, weeklyPoints=0, currentLevel=1, streak=0;
+let dailyRows={}, weeklyPoints=0;
 let jobSeconds=0, impactSeconds=0, jobInterval=null, impactInterval=null;
 let tasks=[], habits=[];
 let dailyChart=null, weeklyChart=null, monthlyChart=null, pieChart=null;
@@ -83,9 +83,7 @@ async function saveTimers(){ if(auth.currentUser) await setDoc(doc(db,"users",au
 
 // --- Load user data ---
 async function loadUserData(uid){
-  dailyRows={};
-  tasks=[]; habits=[];
-  jobSeconds=0; impactSeconds=0;
+  dailyRows={}; tasks=[]; habits=[]; jobSeconds=0; impactSeconds=0;
 
   const dailySnap = await getDocs(collection(db,"users",uid,"dailyRows"));
   dailySnap.forEach(docSnap => { dailyRows[docSnap.id] = docSnap.data(); });
@@ -105,7 +103,7 @@ async function loadUserData(uid){
   }
   updateTimersUI();
   renderAllRows();
-  updateWeeklyScore(); // ensure weekly score shows on load
+  updateWeeklyScore();
   renderCharts();
 }
 
@@ -167,14 +165,14 @@ function renderAllRows(){
   last7.forEach(d=>{ renderRow(dailyRows[d]); if(d===today) document.getElementById("row_"+d).style.fontWeight="bold"; });
 }
 
-// Toggle checkboxes with real-time weekly score
+// Toggle checkboxes
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
   row[field]=!row[field];
   if(field!=="tracking") row.tracking=true;
   saveDailyRow(row);
   renderAllRows();
-  updateWeeklyScore(); // <-- added for real-time update
+  updateWeeklyScore();
   renderCharts();
 }
 
@@ -215,8 +213,7 @@ window.habitSlip=function(i){
   const today = getLocalDate();
   if(dailyRows[today]) dailyRows[today].habitSlips++;
   saveHabits(); saveDailyRow(dailyRows[today]); 
-  renderAllRows(); renderHabits();
-  updateWeeklyScore(); // <-- added for real-time update
+  renderAllRows(); renderHabits(); updateWeeklyScore();
 }
 window.deleteHabit=function(i){ habits.splice(i,1); renderHabits(); saveHabits(); }
 
@@ -226,26 +223,56 @@ document.getElementById("stopJobBtn").addEventListener("click", ()=>stopTimer('j
 document.getElementById("startImpactBtn").addEventListener("click", ()=>startTimer('impact'));
 document.getElementById("stopImpactBtn").addEventListener("click", ()=>stopTimer('impact'));
 
+let jobStartTime = null, impactStartTime = null;
+
 function startTimer(type){
-  if(type==="job" && !jobInterval){ jobInterval=setInterval(()=>{
-    jobSeconds++; updateTimersUI();
-  },1000);}
-  if(type==="impact" && !impactInterval){ impactInterval=setInterval(()=>{
-    impactSeconds++; updateTimersUI();
-  },1000);}
+  if(type==="job" && !jobInterval){
+    jobStartTime = Date.now();
+    jobInterval = setInterval(updateTimersUI,1000);
+  }
+  if(type==="impact" && !impactInterval){
+    impactStartTime = Date.now();
+    impactInterval = setInterval(updateTimersUI,1000);
+  }
 }
+
 function stopTimer(type){
-  if(type==="job"){ clearInterval(jobInterval); jobInterval=null; saveTimers(); }
-  if(type==="impact"){ clearInterval(impactInterval); impactInterval=null; saveTimers(); }
+  const today = getLocalDate();
+  if(type==="job" && jobInterval){
+    clearInterval(jobInterval); jobInterval=null;
+    jobSeconds += Math.floor((Date.now() - jobStartTime)/1000);
+    const hours = Math.floor(jobSeconds/3600);
+    if(dailyRows[today]) dailyRows[today].jobHours += hours;
+    jobSeconds = jobSeconds % 3600; // keep leftover seconds
+    saveTimers(); if(dailyRows[today]) saveDailyRow(dailyRows[today]);
+    renderAllRows(); updateWeeklyScore(); renderCharts();
+  }
+  if(type==="impact" && impactInterval){
+    clearInterval(impactInterval); impactInterval=null;
+    impactSeconds += Math.floor((Date.now() - impactStartTime)/1000);
+    const hours = Math.floor(impactSeconds/3600);
+    if(dailyRows[today]) dailyRows[today].impactHours += hours;
+    impactSeconds = impactSeconds % 3600;
+    saveTimers(); if(dailyRows[today]) saveDailyRow(dailyRows[today]);
+    renderAllRows(); updateWeeklyScore(); renderCharts();
+  }
+  jobStartTime=null; impactStartTime=null;
 }
+
 function updateTimersUI(){
-  document.getElementById("jobTime").innerText=formatSeconds(jobSeconds);
-  document.getElementById("impactTime").innerText=formatSeconds(impactSeconds);
+  let jobDisplay = jobSeconds + (jobStartTime?Math.floor((Date.now()-jobStartTime)/1000):0);
+  let impactDisplay = impactSeconds + (impactStartTime?Math.floor((Date.now()-impactStartTime)/1000):0);
+  document.getElementById("jobTime").innerText=formatSeconds(jobDisplay);
+  document.getElementById("impactTime").innerText=formatSeconds(impactDisplay);
 }
+
 function formatSeconds(sec){
-  const h=Math.floor(sec/3600); const m=Math.floor((sec%3600)/60); const s=sec%60;
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
   return `${h}h ${m}m ${s}s`;
 }
+
+// --- Autosave timers every 3 minutes ---
+setInterval(()=>{ if(auth.currentUser) saveTimers(); },180000);
 
 // --- Charts (unchanged) ---
 function renderCharts(){
@@ -331,43 +358,32 @@ button:hover{transform:scale(1.05);}
   <table>
     <thead>
       <tr>
-        <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Daily Score</th>
+        <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Score</th>
       </tr>
     </thead>
     <tbody id="dailyBody"></tbody>
   </table>
   <p id="weeklyScore">Weekly Score: 0</p>
-  <p id="levelDisplay">Level: 1</p>
-  <p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
 </div>
 
-<div class="card">
-<h2>Top 3</h2>
-<input type="text" id="taskInput" placeholder="Task">
-<button id="addTaskBtn">Add Task</button>
-<button id="resetTasksBtn">Reset</button>
-<div id="taskList"></div>
+<div class="card"><h2>Tasks</h2><input id="taskInput" placeholder="New Task"><button id="addTaskBtn">Add Task</button><button id="resetTasksBtn">Reset</button><div id="taskList"></div></div>
+
+<div class="card"><h2>Habits</h2><input id="habitInput" placeholder="New Habit"><button id="addHabitBtn">Add Habit</button><div id="habitList"></div></div>
+
+<div class="card"><h2>Timers</h2>
+  <button id="startJobBtn">Start Job Hours</button>
+  <button id="stopJobBtn">Stop Job Hours</button>
+  <p id="jobTime">0h 0m 0s</p>
+  <button id="startImpactBtn">Start Impact Hours</button>
+  <button id="stopImpactBtn">Stop Impact Hours</button>
+  <p id="impactTime">0h 0m 0s</p>
 </div>
 
-<div class="card">
-<h2>Habit Breaking</h2>
-<input type="text" id="habitInput" placeholder="Habit">
-<button id="addHabitBtn">Add Habit</button>
-<div id="habitList"></div>
-</div>
-
-<div class="card">
-<h2>Timers</h2>
-<p>Job Hours: <span id="jobTime">0h 0m 0s</span> <button id="startJobBtn">Start</button> <button id="stopJobBtn">Stop</button></p>
-<p>Impact Hours: <span id="impactTime">0h 0m 0s</span> <button id="startImpactBtn">Start</button> <button id="stopImpactBtn">Stop</button></p>
-</div>
-
-<div class="card">
-<h2>Charts</h2>
-<canvas id="dailyScoreChart"></canvas>
-<canvas id="weeklyBarChart"></canvas>
-<canvas id="monthlyLineChart"></canvas>
-<canvas id="pieChart"></canvas>
+<div class="card"><h2>Charts</h2>
+  <canvas id="dailyScoreChart"></canvas>
+  <canvas id="weeklyBarChart"></canvas>
+  <canvas id="monthlyLineChart"></canvas>
+  <canvas id="pieChart"></canvas>
 </div>
 
 </div>
