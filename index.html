@@ -260,13 +260,24 @@ function renderCharts(){
     options:{ responsive:true, plugins:{legend:{display:true}} }
   });
 
+  // --- Weekly chart: Sunday → Saturday ---
   let weeklyData=[], weekLabels=[];
-  for(let i=0;i<dates.length;i+=7){
-    let weekSum=0;
-    for(let j=i;j<i+7 && j<dates.length;j++) weekSum+=calculateScore(dailyRows[dates[j]]);
-    weeklyData.push(weekSum);
-    weekLabels.push(`Week ${i/7+1}`);
-  }
+  let allDates = Object.keys(dailyRows).map(d=>new Date(d)).sort((a,b)=>a-b);
+  let weekStart=null, weekSum=0;
+  allDates.forEach((dateObj,index)=>{
+      const day = dateObj.getDay();
+      if(weekStart===null) weekStart=new Date(dateObj);
+      const dateStr = dateObj.toISOString().split('T')[0];
+      weekSum += calculateScore(dailyRows[dateStr]);
+      if(day===6 || index===allDates.length-1){
+          const weekEnd=new Date(dateObj);
+          weeklyData.push(weekSum);
+          weekLabels.push(`${weekStart.toISOString().split('T')[0]} → ${weekEnd.toISOString().split('T')[0]}`);
+          weekSum=0;
+          weekStart=null;
+      }
+  });
+
   const weeklyCtx=document.getElementById("weeklyBarChart").getContext("2d");
   if(weeklyChart) weeklyChart.destroy();
   weeklyChart = new Chart(weeklyCtx,{
@@ -278,9 +289,8 @@ function renderCharts(){
 </script>
 
 <style>
-body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin: 0; padding: 0; }
-.card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; width: 90%; max-width: 900px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-h2 { margin-top: 0; }
+body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin:0; padding:0; }
+.card { background:white; padding:20px; margin:15px auto; width:90%; max-width:1000px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
 tr:nth-child(even) { background: #f9f9f9; }
@@ -291,6 +301,7 @@ button:hover { transform: scale(1.05); }
 .header-row { display:flex; justify-content: space-between; align-items: center; }
 .header-row h2 { margin:0; }
 .header-row button { margin:0; background:#dc3545; }
+.habit { margin-bottom:5px; }
 </style>
 </head>
 
