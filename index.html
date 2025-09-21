@@ -3,217 +3,386 @@
 <head>
 <meta charset="UTF-8">
 <title>Growth Tracker</title>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+// --- Firebase config ---
+const firebaseConfig = {
+apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
+authDomain: "growth-tracker-a367c.firebaseapp.com",
+projectId: "growth-tracker-a367c",
+storageBucket: "growth-tracker-a367c.firebasestorage.app",
+messagingSenderId: "277469925642",
+appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
+measurementId: "G-DPYPWBMHLB"
+};
+
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
+
+// --- Global state ---
+let dailyRows={}, weeklyPoints=0, currentLevel=1, streak=0;
+let jobMinutes=0, impactMinutes=0, jobInterval, impactInterval;
+let tasks=[], habits=[];
+let dailyChart=null, weeklyChart=null, monthlyChart=null, pieChart=null;
+
+// --- Elements ---
+const loginCard = document.getElementById("login-card");
+const appDiv = document.getElementById("app");
+const loginError = document.getElementById("loginError");
+
+// --- Helpers ---
+function getLocalDate(){
+  const today = new Date();
+  return today.getFullYear() + "-" +
+         String(today.getMonth()+1).padStart(2,'0') + "-" +
+         String(today.getDate()).padStart(2,'0');
+}
+
+function calculateScore(row){
+  return (row.prayer?1:0)+(row.mindset?1:0)+(row.prioritize?1:0)+(row.visualize?1:0)+
+         (row.exercise?3:0)+(row.tracking?3:0)-row.habitSlips+row.jobHours+row.impactHours*3;
+}
+
+// --- Auth state ---
+onAuthStateChanged(auth, async user => {
+  if(user){
+    loginCard.style.display = "none"; 
+    appDiv.style.display = "block";
+
+    dailyRows={};
+    const dailySnap = await getDocs(collection(db,"users",user.uid,"dailyRows"));
+    dailySnap.forEach(docSnap => { dailyRows[docSnap.id] = docSnap.data(); });
+
+    const taskSnap = await getDoc(doc(db,"users",user.uid,"meta","tasks"));
+    tasks = taskSnap.exists() ? taskSnap.data().tasks || [] : [];
+    renderTasks();
+
+    const habitSnap = await getDoc(doc(db,"users",user.uid,"meta","habits"));
+    habits = habitSnap.exists() ? habitSnap.data().habits || [] : [];
+    renderHabits();
+
+    const timerSnap = await getDoc(doc(db,"users",user.uid,"meta","timers"));
+    if(timerSnap.exists()){
+      jobMinutes = timerSnap.data().jobMinutes || 0;
+      impactMinutes = timerSnap.data().impactMinutes || 0;
+      document.getElementById("jobTime").innerText = Math.floor(jobMinutes/60)+"h";
+      document.getElementById("impactTime").innerText = Math.floor(impactMinutes/60)+"h";
+    }
+
+    renderAllRows();
+    renderCharts();
+
+  } else {
+    loginCard.style.display="block"; 
+    appDiv.style.display="none";
+  }
+});
+
+// --- Login / Signup ---
+document.getElementById("loginBtn").addEventListener("click", async ()=>{
+  loginError.innerText="";
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  try { await signInWithEmailAndPassword(auth,email,password); }
+  catch(e){ loginError.innerText=`Login failed: ${e.message}`; }
+});
+document.getElementById("signupBtn").addEventListener("click", async ()=>{
+  loginError.innerText="";
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  try { await createUserWithEmailAndPassword(auth,email,password); alert("Signup successful! You can now login."); }
+  catch(e){ loginError.innerText=`Signup failed: ${e.message}`; }
+});
+document.getElementById("logoutBtn").addEventListener("click", async ()=>{ await signOut(auth); });
+
+// --- Save functions ---
+async function saveDailyRow(row){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"dailyRows",row.date),row); }
+async function saveTasks(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","tasks"),{tasks}); }
+async function saveHabits(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","habits"),{habits}); }
+async function saveTimers(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","timers"),{jobMinutes,impactMinutes}); }
+
+// --- Daily Tracker ---
+document.getElementById("addDayBtn").addEventListener("click", addDay);
+function addDay(){
+  const localDate = getLocalDate();
+  if(dailyRows[localDate]){
+    alert("Today's row already exists");
+    return;
+  }
+
+  // Reset Top 3 tasks for the new day
+  tasks = [];
+  renderTasks();
+  saveTasks();
+
+  const row = { 
+    date: localDate, prayer:false, mindset:false, prioritize:false, visualize:false, 
+    exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0 
+  };
+  dailyRows[localDate]=row;
+  saveDailyRow(row);
+  renderAllRows();
+  renderCharts();
+}
+
+function renderRow(row){
+  const tbody = document.getElementById("dailyBody");
+  const tr = document.createElement("tr");
+  tr.id = "row_" + row.date;
+
+  const score = calculateScore(row);
+  let bgColor = "";
+  if(score>=15) bgColor="#d4edda";
+  else if(score>=10) bgColor="#fff3cd";
+  else bgColor="#f8d7da";
+  tr.style.backgroundColor = bgColor;
+
+  tr.innerHTML = `
+<td>${row.date}</td>
+<td><input type="checkbox" ${row.prayer?'checked':''} onchange="toggleCheck('${row.date}','prayer')"></td>
+<td><input type="checkbox" ${row.mindset?'checked':''} onchange="toggleCheck('${row.date}','mindset')"></td>
+<td><input type="checkbox" ${row.prioritize?'checked':''} onchange="toggleCheck('${row.date}','prioritize')"></td>
+<td><input type="checkbox" ${row.visualize?'checked':''} onchange="toggleCheck('${row.date}','visualize')"></td>
+<td><input type="checkbox" ${row.exercise?'checked':''} onchange="toggleCheck('${row.date}','exercise')"></td>
+<td><input type="checkbox" ${row.tracking?'checked':''} onchange="toggleCheck('${row.date}','tracking')"></td>
+<td id="habitSlips_${row.date}">${row.habitSlips}</td>
+<td id="jobHours_${row.date}">${row.jobHours}</td>
+<td id="impactHours_${row.date}">${row.impactHours}</td>
+<td id="dailyScore_${row.date}">${score}</td>
+`;
+  tbody.appendChild(tr);
+}
+
+// Render last 7 rows with today highlight
+function renderAllRows(){
+  const tbody = document.getElementById("dailyBody");
+  tbody.innerHTML="";
+  const dates = Object.keys(dailyRows).sort((a,b)=>new Date(b)-new Date(a));
+  const last7Dates = dates.slice(0,7).reverse();
+  const today = getLocalDate();
+  last7Dates.forEach(d => {
+    renderRow(dailyRows[d]);
+    if(d===today) document.getElementById("row_"+d).style.fontWeight="bold";
+  });
+}
+
+// Toggle checkbox with color and tracking
+window.toggleCheck = function(date,field){
+  const row = dailyRows[date];
+  row[field] = !row[field];
+  if(field!=="tracking") row.tracking=true;
+  updateScore(date);
+  saveDailyRow(row);
+  renderAllRows();
+  renderCharts();
+};
+
+// --- Scoring & Levels ---
+function updateScore(date){
+  const row = dailyRows[date];
+  let score = calculateScore(row);
+  row.bgColor = score>=15?"#d4edda":(score>=10?"#fff3cd":"#f8d7da");
+
+  document.getElementById("dailyScore_"+date).innerText = score;
+
+  weeklyPoints=0;
+  for(const d in dailyRows) weeklyPoints+=calculateScore(dailyRows[d]);
+  document.getElementById("weeklyScore").innerText = "Weekly Score: "+weeklyPoints;
+
+  let nextMin=0,nextMax=0;
+  if(currentLevel===1){nextMin=112;nextMax=125;}
+  if(currentLevel===2){nextMin=126;nextMax=140;}
+  if(currentLevel===3){nextMin=141;nextMax=170;}
+  if(weeklyPoints>=nextMin && weeklyPoints<=nextMax){ streak++; if(streak>=4){currentLevel++; streak=0;} }
+  else{ streak=0; }
+  document.getElementById("levelDisplay").innerText = "Level: "+currentLevel;
+  document.getElementById("streakDisplay").innerText = "Progress Toward Next Level: "+streak+"/4 weeks";
+}
+
+// --- Timers ---
+document.getElementById("startJobBtn").addEventListener("click", ()=>startTimer('job'));
+document.getElementById("stopJobBtn").addEventListener("click", ()=>stopTimer('job'));
+document.getElementById("startImpactBtn").addEventListener("click", ()=>startTimer('impact'));
+document.getElementById("stopImpactBtn").addEventListener("click", ()=>stopTimer('impact'));
+
+function startTimer(type){
+  if(type==="job" && !jobInterval){ jobInterval=setInterval(()=>{jobMinutes++; document.getElementById("jobTime").innerText=Math.floor(jobMinutes/60)+"h"; },60000); }
+  if(type==="impact" && !impactInterval){ impactInterval=setInterval(()=>{impactMinutes++; document.getElementById("impactTime").innerText=Math.floor(impactMinutes/60)+"h"; },60000); }
+}
+function stopTimer(type){
+  if(type==="job"){ clearInterval(jobInterval); jobInterval=null; saveTimers(); }
+  if(type==="impact"){ clearInterval(impactInterval); impactInterval=null; saveTimers(); }
+}
+
+// --- Tasks ---
+document.getElementById("addTaskBtn").addEventListener("click", ()=>{
+  const val = document.getElementById("taskInput").value.trim();
+  if(val && tasks.length<3){ tasks.push({name:val,completed:false}); renderTasks(); saveTasks(); document.getElementById("taskInput").value=""; }
+});
+document.getElementById("resetTasksBtn").addEventListener("click", ()=>{
+  tasks=[]; renderTasks(); saveTasks();
+});
+function renderTasks(){
+  const div = document.getElementById("taskList"); 
+  div.innerHTML="";
+  const unchecked = tasks.filter(t=>!t.completed);
+  const checked = tasks.filter(t=>t.completed);
+  [...unchecked,...checked].forEach((t,i)=>{
+    const p=document.createElement("p");
+    p.innerHTML=`<input type="checkbox" ${t.completed?'checked':''} onchange="toggleTask(${i})"> ${t.name}`;
+    div.appendChild(p);
+  });
+}
+window.toggleTask = function(i){
+  tasks[i].completed=!tasks[i].completed;
+  renderTasks();
+  saveTasks();
+}
+
+// --- Habits ---
+document.getElementById("addHabitBtn").addEventListener("click", ()=>{
+  const val = document.getElementById("habitInput").value.trim();
+  if(val){ habits.push({name:val,daysSinceLastSlip:0}); renderHabits(); saveHabits(); document.getElementById("habitInput").value=""; }
+});
+function renderHabits(){
+  const div = document.getElementById("habitList"); div.innerHTML="";
+  habits.forEach((h,i)=>{
+    const p=document.createElement("p");
+    p.className="habit";
+    p.innerHTML=`${h.name} - ${h.daysSinceLastSlip} days <button onclick="habitSlip(${i})">Slip</button> <button onclick="deleteHabit(${i})">Delete</button>`;
+    div.appendChild(p);
+  });
+}
+window.habitSlip = function(i){
+  habits[i].daysSinceLastSlip=0;
+  if(dailyRows[getLocalDate()]) dailyRows[getLocalDate()].habitSlips++;
+  renderHabits(); renderAllRows(); saveHabits(); if(dailyRows[getLocalDate()]) saveDailyRow(dailyRows[getLocalDate()]);
+}
+window.deleteHabit = function(i){ habits.splice(i,1); renderHabits(); saveHabits(); }
+
+// --- Charts ---
+function renderCharts(){
+  const dailyCtx = document.getElementById("dailyScoreChart").getContext("2d");
+  const weeklyCtx = document.getElementById("weeklyBarChart").getContext("2d");
+  const monthlyCtx = document.getElementById("monthlyLineChart").getContext("2d");
+  const pieCtx = document.getElementById("pieChart").getContext("2d");
+
+  const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
+  const last7 = dates.slice(-7);
+  const dailyScores = last7.map(d=>calculateScore(dailyRows[d]));
+  if(dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(dailyCtx,{type:'line',data:{labels:last7,datasets:[{label:'Daily Score',data:dailyScores,borderColor:'blue',fill:false}]}});
+  
+  const weeks = {}; // weekly sum
+  dates.forEach(d=>{
+    const dateObj=new Date(d); 
+    const sunday = new Date(dateObj); sunday.setDate(sunday.getDate()-dateObj.getDay());
+    const key = `${sunday.getMonth()+1}/${sunday.getDate()}/${sunday.getFullYear()}`;
+    if(!weeks[key]) weeks[key]=0;
+    weeks[key]+=calculateScore(dailyRows[d]);
+  });
+  const weekLabels=Object.keys(weeks), weekScores=Object.values(weeks);
+  if(weeklyChart) weeklyChart.destroy();
+  weeklyChart = new Chart(weeklyCtx,{type:'bar',data:{labels:weekLabels,datasets:[{label:'Weekly Score',data:weekScores,backgroundColor:'orange'}]}});
+  
+  const last30 = dates.slice(-30), monthLabels=last30.map(d=>{const dt=new Date(d); return dt.toLocaleString('default',{month:'short',year:'2-digit'});});
+  const monthScores = last30.map(d=>calculateScore(dailyRows[d]));
+  if(monthlyChart) monthlyChart.destroy();
+  monthlyChart = new Chart(monthlyCtx,{type:'line',data:{labels:monthLabels,datasets:[{label:'Monthly Score',data:monthScores,borderColor:'green',fill:false}]}});
+
+  const categories=['Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','JobHours','ImpactHours','HabitSlips'];
+  const totals=[0,0,0,0,0,0,0,0,0];
+  for(const d in dailyRows){
+    const row=dailyRows[d];
+    totals[0]+=row.prayer?1:0; totals[1]+=row.mindset?1:0; totals[2]+=row.prioritize?1:0; totals[3]+=row.visualize?1:0;
+    totals[4]+=row.exercise?3:0; totals[5]+=row.tracking?3:0; totals[6]+=row.jobHours; totals[7]+=row.impactHours*3; totals[8]+=row.habitSlips;
+  }
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(pieCtx,{type:'pie',data:{labels:categories,datasets:[{data:totals,backgroundColor:['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#00bcd4','#4caf50','#ff9800']}]}})
+}
+</script>
 <style>
 body{font-family:sans-serif;margin:0;padding:0;background:#f2f2f2;}
 .card{background:white;padding:20px;margin:15px auto;width:90%;max-width:1000px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-.card h2{text-align:center;margin-bottom:10px;}
-.input-group{text-align:center;margin-bottom:10px;}
-input[type="text"], input[type="email"], input[type="password"]{display:block;margin:10px auto;padding:8px;width:80%;max-width:300px;text-align:center;}
-button{padding:5px 10px;border:none;border-radius:6px;background:#007bff;color:white;margin:2px;cursor:pointer;}
-button:hover{opacity:0.9;}
-#logoutBtn{position:absolute;top:10px;right:10px;}
-section{margin-bottom:20px;}
-table{border-collapse:collapse;width:100%;}
-th,td{text-align:center;padding:5px;border:1px solid #ccc;}
-.high-score{background:#b6fcb6;}
-.low-score{background:#fcb6b6;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+tr:nth-child(even){background:#f9f9f9;}
+tr:hover{background:#eef;}
+input[type="checkbox"]{transform:scale(1.2);cursor:pointer;}
+button{padding:5px 10px;border:none;border-radius:6px;background:#007bff;color:white;cursor:pointer;margin:2px;}
+button:hover{transform:scale(1.05);}
+.header-row{display:flex;justify-content: space-between;align-items:center;}
+.header-row h2{margin:0;}
+.header-row button{margin:0;background:#dc3545;}
+.habit{margin-bottom:5px;}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login-card" class="card">
-  <h2>Login / Signup</h2>
-  <div class="input-group">
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Password">
-    <button id="loginBtn">Login</button>
-    <button id="signupBtn">Signup</button>
-  </div>
-  <p id="loginError" style="color:red;text-align:center"></p>
+<h2>Login / Signup</h2>
+<p id="loginError" style="color:red;"></p>
+<input id="email" type="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
+<button id="loginBtn">Login</button>
+<button id="signupBtn">Sign Up</button>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:none; position:relative;">
-<button id="logoutBtn">Logout</button>
+<div id="app" style="display:none;">
 
-<!-- DAILY TRACKER -->
-<section class="card">
-<h2>Daily Tracker</h2>
-<button id="addDayBtn">Add Today</button>
-<p id="weeklyFeedback"></p>
-<table>
-<thead>
-<tr>
-<th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Score</th>
-</tr>
-</thead>
-<tbody id="dailyBody"></tbody>
-</table>
-</section>
+<div class="card">
+  <div class="header-row">
+    <h2>Daily Tracker</h2>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <button id="addDayBtn">Add Today</button>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Daily Score</th>
+      </tr>
+    </thead>
+    <tbody id="dailyBody"></tbody>
+  </table>
+  <p id="weeklyScore">Weekly Score: 0</p>
+  <p id="levelDisplay">Level: 1</p>
+  <p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
+</div>
 
-<!-- TOP 3 -->
-<section class="card">
+<div class="card">
 <h2>Top 3</h2>
-<div style="text-align:center;">
-<input type="text" id="taskInput" placeholder="Enter task">
+<input type="text" id="taskInput" placeholder="Task">
 <button id="addTaskBtn">Add Task</button>
 <button id="resetTasksBtn">Reset</button>
+<div id="taskList"></div>
 </div>
-<div id="taskList" style="text-align:center;"></div>
-</section>
 
-<!-- HABIT BREAKING -->
-<section class="card">
+<div class="card">
 <h2>Habit Breaking</h2>
-<div style="text-align:center;">
-<input type="text" id="habitInput" placeholder="Enter habit">
+<input type="text" id="habitInput" placeholder="Habit">
 <button id="addHabitBtn">Add Habit</button>
+<div id="habitList"></div>
 </div>
-<div id="habitList" style="text-align:center;"></div>
-</section>
 
-<!-- TIMERS -->
-<section class="card">
+<div class="card">
 <h2>Timers</h2>
-<p>Job Hours: <span id="jobTime">0h 0m 0s</span> 
-<button id="startJobBtn">Start</button> 
-<button id="stopJobBtn">Stop</button></p>
-<p>Impact Hours: <span id="impactTime">0h 0m 0s</span> 
-<button id="startImpactBtn">Start</button> 
-<button id="stopImpactBtn">Stop</button></p>
-</section>
+<p>Job Hours: <span id="jobTime">0h</span> <button id="startJobBtn">Start</button> <button id="stopJobBtn">Stop</button></p>
+<p>Impact Hours: <span id="impactTime">0h</span> <button id="startImpactBtn">Start</button> <button id="stopImpactBtn">Stop</button></p>
+</div>
 
-<!-- CHARTS -->
-<section class="card">
-<h2>Daily Score Chart</h2>
+<div class="card">
+<h2>Charts</h2>
 <canvas id="dailyScoreChart"></canvas>
-<h2>Weekly Bar Chart</h2>
 <canvas id="weeklyBarChart"></canvas>
-<h2>Monthly Line Chart</h2>
 <canvas id="monthlyLineChart"></canvas>
-<h2>Point Distribution</h2>
 <canvas id="pieChart"></canvas>
-</section>
+</div>
 
-<script>
-  // --- Firebase Init ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyD4IYJo_cNRILK3KmmDExpmuO7F4c_izN4",
-    authDomain: "growth-tracker-a367c.firebaseapp.com",
-    projectId: "growth-tracker-a367c",
-    storageBucket: "growth-tracker-a367c.firebasestorage.app",
-    messagingSenderId: "277469925642",
-    appId: "1:277469925642:web:f79c6f277931c969bfaaf3",
-    measurementId: "G-DPYPWBMHLB"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-
-  // --- State ---
-  let dailyRows={}, tasks=[], habits=[], jobSeconds=0, impactSeconds=0;
-  let jobInterval=null, impactInterval=null;
-  let dailyChart=null, weeklyChart=null, monthlyChart=null, pieChart=null;
-
-  function getLocalDate(){
-    const today = new Date();
-    return today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,'0') + "-" + String(today.getDate()).padStart(2,'0');
-  }
-
-  function formatTime(sec){
-    const h = Math.floor(sec/3600);
-    const m = Math.floor((sec%3600)/60);
-    const s = sec%60;
-    return `${h}h ${m}m ${s}s`;
-  }
-
-  function calculateScore(row){
-    return (row.prayer?1:0)+(row.mindset?1:0)+(row.prioritize?1:0)+(row.visualize?1:0)+
-           (row.exercise?3:0)+(row.tracking?3:0)-row.habitSlips+row.jobHours+row.impactHours*3;
-  }
-
-  // --- Auth ---
-  auth.onAuthStateChanged(async user=>{
-    if(user){
-      document.getElementById("login-card").style.display="none";
-      document.getElementById("app").style.display="block";
-
-      await loadData(user.uid);
-    } else {
-      document.getElementById("login-card").style.display="block";
-      document.getElementById("app").style.display="none";
-    }
-  });
-
-  document.getElementById("loginBtn").onclick = async ()=>{
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    try{ await auth.signInWithEmailAndPassword(email,password);}
-    catch(e){ document.getElementById("loginError").innerText=e.message;}
-  }
-
-  document.getElementById("signupBtn").onclick = async ()=>{
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    try{ await auth.createUserWithEmailAndPassword(email,password); alert("Signup successful!");}
-    catch(e){ document.getElementById("loginError").innerText=e.message;}
-  }
-
-  document.getElementById("logoutBtn").onclick = ()=>{ auth.signOut(); }
-
-  // --- Load user data ---
-  async function loadData(uid){
-    dailyRows={};
-    tasks=[]; habits=[]; jobSeconds=0; impactSeconds=0;
-    
-    // Daily rows
-    const dailySnap = await db.collection("users").doc(uid).collection("dailyRows").get();
-    dailySnap.forEach(doc=>{ dailyRows[doc.id]=doc.data(); });
-
-    const today = getLocalDate();
-    if(!dailyRows[today]){
-      dailyRows[today]={date:today, prayer:false, mindset:false, prioritize:false, visualize:false, exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0};
-      await db.collection("users").doc(uid).collection("dailyRows").doc(today).set(dailyRows[today]);
-    }
-
-    // Tasks
-    const taskDoc = await db.collection("users").doc(uid).collection("meta").doc("tasks").get();
-    tasks = taskDoc.exists ? taskDoc.data().tasks||[] : [];
-
-    // Habits
-    const habitDoc = await db.collection("users").doc(uid).collection("meta").doc("habits").get();
-    habits = habitDoc.exists ? habitDoc.data().habits||[] : [];
-
-    // Timers
-    const timerDoc = await db.collection("users").doc(uid).collection("meta").doc("timers").get();
-    if(timerDoc.exists){ jobSeconds = timerDoc.data().jobSeconds||0; impactSeconds = timerDoc.data().impactSeconds||0; }
-
-    renderAllRows();
-    renderTasks();
-    renderHabits();
-    startTimers();
-    renderCharts();
-  }
-
-  // --- Add Today row ---
-  document.getElementById("addDayBtn").onclick = async ()=>{
-    const uid = auth.currentUser.uid;
-    const today = getLocalDate();
-    if(dailyRows[today]) return;
-    dailyRows[today]={date:today, prayer:false, mindset:false, prioritize:false, visualize:false, exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0};
-    await db.collection("users").doc(uid).collection("dailyRows").doc(today).set(dailyRows[today]);
-    renderAllRows();
-  }
-
-  // --- The rest of the JS logic ---
-  // Functions: renderAllRows, toggleCheck, addTask, resetTasks, addHabit, deleteHabit, startTimers, stopTimers, renderCharts
-  // Implement according to the last fully working JS you had, making sure all Firestore reads/writes go through the CDN-style calls.
-
-</script>
+</div>
 </body>
 </html>
