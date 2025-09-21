@@ -105,7 +105,15 @@ async function loadUserData(uid){
   }
   updateTimersUI();
   renderAllRows();
+  updateWeeklyScore(); // ensure weekly score shows on load
   renderCharts();
+}
+
+// --- Weekly score helper ---
+function updateWeeklyScore(){
+  weeklyPoints = 0;
+  for (const d in dailyRows) weeklyPoints += calculateScore(dailyRows[d]);
+  document.getElementById("weeklyScore").innerText = "Weekly Score: " + weeklyPoints;
 }
 
 // --- Daily Tracker ---
@@ -123,6 +131,7 @@ function addDay(){
   dailyRows[localDate]=row;
   saveDailyRow(row);
   renderAllRows();
+  updateWeeklyScore();
   renderCharts();
 }
 
@@ -158,12 +167,14 @@ function renderAllRows(){
   last7.forEach(d=>{ renderRow(dailyRows[d]); if(d===today) document.getElementById("row_"+d).style.fontWeight="bold"; });
 }
 
+// Toggle checkboxes with real-time weekly score
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
   row[field]=!row[field];
   if(field!=="tracking") row.tracking=true;
   saveDailyRow(row);
   renderAllRows();
+  updateWeeklyScore(); // <-- added for real-time update
   renderCharts();
 }
 
@@ -183,7 +194,7 @@ function renderTasks(){
     div.appendChild(p);
   });
 }
-window.toggleTask=function(i){ tasks[i].completed=!tasks[i].completed; renderTasks(); saveTasks(); }
+window.toggleTask=function(i){ tasks[i].completed=!tasks[i].completed; renderTasks(); saveTasks() }
 
 // --- Habits ---
 document.getElementById("addHabitBtn").addEventListener("click", ()=>{
@@ -203,7 +214,9 @@ window.habitSlip=function(i){
   habits[i].daysSinceLastSlip=0;
   const today = getLocalDate();
   if(dailyRows[today]) dailyRows[today].habitSlips++;
-  saveHabits(); saveDailyRow(dailyRows[today]); renderAllRows(); renderHabits();
+  saveHabits(); saveDailyRow(dailyRows[today]); 
+  renderAllRows(); renderHabits();
+  updateWeeklyScore(); // <-- added for real-time update
 }
 window.deleteHabit=function(i){ habits.splice(i,1); renderHabits(); saveHabits(); }
 
