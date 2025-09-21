@@ -53,21 +53,25 @@ onAuthStateChanged(auth, async user => {
     loginCard.style.display = "none"; 
     appDiv.style.display = "block";
 
+    // --- Clear table first ---
+    document.getElementById("dailyBody").innerHTML="";
+
     // Load dailyRows
+    dailyRows={};
     const dailySnap = await getDocs(collection(db,"users",user.uid,"dailyRows"));
     dailySnap.forEach(docSnap => {
       dailyRows[docSnap.id] = docSnap.data();
-      renderRow(dailyRows[docSnap.id]);
+      renderRow(dailyRows[docSnap.id]); // only render existing rows
     });
 
     // Load tasks
     const taskSnap = await getDoc(doc(db,"users",user.uid,"meta","tasks"));
-    if(taskSnap.exists()) tasks = taskSnap.data().tasks || [];
+    tasks = taskSnap.exists() ? taskSnap.data().tasks || [] : [];
     renderTasks();
 
     // Load habits
     const habitSnap = await getDoc(doc(db,"users",user.uid,"meta","habits"));
-    if(habitSnap.exists()) habits = habitSnap.data().habits || [];
+    habits = habitSnap.exists() ? habitSnap.data().habits || [] : [];
     renderHabits();
 
     // Load timers
@@ -254,7 +258,6 @@ function renderCharts(){
     options:{ responsive:true, plugins:{legend:{display:true}} }
   });
 }
-
 </script>
 
 <style>
