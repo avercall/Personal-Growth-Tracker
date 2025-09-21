@@ -168,11 +168,6 @@ function renderAllRows(){
   weeklyFeedback.innerText = `Weekly Score: ${weeklyPoints} | Level: ${currentLevel} | Streak: ${streak} weeks`;
 }
 
-function calculateStreak(){
-  // For simplicity, we just return 1 (you can integrate 4-week logic later)
-  return 1;
-}
-
 // Toggle checkbox
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
@@ -193,7 +188,6 @@ function startTimers(){
     saveTimers();
   },1000);
 }
-
 function formatTime(sec){
   const h = Math.floor(sec/3600);
   const m = Math.floor((sec%3600)/60);
@@ -255,8 +249,42 @@ input[type="checkbox"]{transform:scale(1.2);cursor:pointer;}
     <p id="weeklyFeedback">Weekly Score: 0 | Level: 1 | Streak: 0 weeks</p>
   </div>
 
-  <!-- Other sections (Top 3, Habits, Timers, Charts) remain unchanged -->
+  <!-- Top 3 Tasks -->
+  <div class="card">
+    <h2>Top 3</h2>
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="Task">
+      <button id="addTaskBtn">Add Task</button>
+      <button id="resetTasksBtn">Reset</button>
+    </div>
+    <div id="taskList"></div>
+  </div>
 
+  <!-- Habit Breaking -->
+  <div class="card">
+    <h2>Habit Breaking</h2>
+    <div class="input-group">
+      <input type="text" id="habitInput" placeholder="Habit">
+      <button id="addHabitBtn">Add Habit</button>
+    </div>
+    <div id="habitList"></div>
+  </div>
+
+  <!-- Timers -->
+  <div class="card">
+    <h2>Timers</h2>
+    <p>Job Hours: <span id="jobTime">0h 0m 0s</span> <button id="startJobBtn">Start</button> <button id="stopJobBtn">Stop</button></p>
+    <p>Impact Hours: <span id="impactTime">0h 0m 0s</span> <button id="startImpactBtn">Start</button> <button id="stopImpactBtn">Stop</button></p>
+  </div>
+
+  <!-- Charts -->
+  <div class="card">
+    <h2>Charts</h2>
+    <canvas id="dailyScoreChart"></canvas>
+    <canvas id="weeklyBarChart"></canvas>
+    <canvas id="monthlyLineChart"></canvas>
+    <canvas id="pieChart"></canvas>
+  </div>
 </div>
 </body>
 </html>
