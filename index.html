@@ -55,21 +55,17 @@ onAuthStateChanged(auth, async user => {
     appDiv.style.display = "block";
 
     dailyRows={};
-    // Load dailyRows
     const dailySnap = await getDocs(collection(db,"users",user.uid,"dailyRows"));
     dailySnap.forEach(docSnap => { dailyRows[docSnap.id] = docSnap.data(); });
 
-    // Load tasks
     const taskSnap = await getDoc(doc(db,"users",user.uid,"meta","tasks"));
     tasks = taskSnap.exists() ? taskSnap.data().tasks || [] : [];
     renderTasks();
 
-    // Load habits
     const habitSnap = await getDoc(doc(db,"users",user.uid,"meta","habits"));
     habits = habitSnap.exists() ? habitSnap.data().habits || [] : [];
     renderHabits();
 
-    // Load timers
     const timerSnap = await getDoc(doc(db,"users",user.uid,"meta","timers"));
     if(timerSnap.exists()){
       jobMinutes = timerSnap.data().jobMinutes || 0;
@@ -148,22 +144,33 @@ function renderRow(row){
   tbody.appendChild(tr);
 }
 
-// Render last 7 rows
+// Render last 7 rows with today highlight
 function renderAllRows(){
   const tbody = document.getElementById("dailyBody");
   tbody.innerHTML="";
   const dates = Object.keys(dailyRows).sort((a,b)=>new Date(b)-new Date(a));
-  const last7Dates = dates.slice(0,7).reverse(); // keep chronological order
-  last7Dates.forEach(d => renderRow(dailyRows[d]));
+  const last7Dates = dates.slice(0,7).reverse();
+  const today = getLocalDate();
+  last7Dates.forEach(d => {
+    renderRow(dailyRows[d]);
+    if(d===today) document.getElementById("row_"+d).style.backgroundColor="#dff0d8";
+  });
 }
 
-// --- Toggle checkbox ---
+// Toggle checkbox with color and tracking
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
   row[field] = !row[field];
   if(field!=="tracking") row.tracking=true;
+
   const tr = document.getElementById("row_"+date);
+  const cellIndex = {prayer:1, mindset:2, prioritize:3, visualize:4, exercise:5, tracking:6}[field];
+  const checkbox = tr.querySelectorAll("td")[cellIndex].querySelector("input");
+  checkbox.checked = row[field];
   tr.querySelectorAll("td")[6].querySelector("input").checked = row.tracking;
+
+  tr.querySelectorAll("td")[cellIndex].style.backgroundColor = row[field] ? "#d4edda" : "";
+
   updateScore(date);
   saveDailyRow(row);
   renderCharts();
@@ -249,11 +256,10 @@ function renderCharts(){
   if(dailyChart) dailyChart.destroy();
   dailyChart = new Chart(dailyCtx,{
     type:'line',
-    data:{ labels:last7Dates, datasets:[{label:'Daily Score', data:dailyScores, borderColor:'blue', backgroundColor:'rgba(0,0,255,0.2)'}]},
+    data:{ labels:last7Dates, datasets:[{label:'Daily Score', data:dailyScores, borderColor:'blue', backgroundColor:'rgba(0,123,255,0.2)', tension:0.3, fill:true} ]},
     options:{ responsive:true, plugins:{legend:{display:true}} }
   });
 
-  // Weekly bar chart
   let weeklyData=[], weekLabels=[];
   for(let i=0;i<dates.length;i+=7){
     let weekSum=0;
@@ -265,7 +271,7 @@ function renderCharts(){
   if(weeklyChart) weeklyChart.destroy();
   weeklyChart = new Chart(weeklyCtx,{
     type:'bar',
-    data:{ labels:weekLabels, datasets:[{label:'Weekly Score', data:weeklyData, backgroundColor:'green'}]},
+    data:{ labels:weekLabels, datasets:[{label:'Weekly Score', data:weeklyData, backgroundColor:'rgba(40,167,69,0.7)', borderRadius:4} ]},
     options:{ responsive:true, plugins:{legend:{display:true}} }
   });
 }
@@ -274,45 +280,50 @@ function renderCharts(){
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background: #f7f9fc; margin: 0; padding: 0; }
 .card { background: white; border-radius: 12px; padding: 20px; margin: 20px auto; width: 90%; max-width: 900px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-h2 { margin-top: 0; color: #333; }
-button { padding: 8px 14px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; margin: 5px; }
-button:hover { background: #45a049; }
-input[type="text"], input[type="email"], input[type="password"] { padding:8px; width:60%; margin:5px; border-radius:6px; border:1px solid #ccc; }
+h2 { margin-top: 0; }
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-td, th { border:1px solid #ddd; padding:6px; text-align:center; }
-thead { background:#4CAF50; color:white; }
-.habit { margin:5px 0; display:flex; justify-content:space-around; align-items:center; background:#eef; padding:5px; border-radius:6px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+tr:nth-child(even) { background: #f9f9f9; }
+tr:hover { background: #eef; }
+input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+button { padding: 5px 10px; border:none; border-radius:6px; background:#007bff; color:white; cursor:pointer; margin:2px; }
+button:hover { transform: scale(1.05); }
+.header-row { display:flex; justify-content: space-between; align-items: center; }
+.header-row h2 { margin:0; }
+.header-row button { margin:0; background:#dc3545; }
 </style>
-
 </head>
+
 <body>
 
 <div id="login-card" class="card">
 <h2>Login / Signup</h2>
-<input type="email" id="email" placeholder="Email">
-<input type="password" id="password" placeholder="Password"><br>
+<p id="loginError" style="color:red;"></p>
+<input id="email" type="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
 <button id="loginBtn">Login</button>
 <button id="signupBtn">Sign Up</button>
-<p id="loginError" style="color:red;"></p>
 </div>
 
 <div id="app" style="display:none;">
 
 <div class="card">
-<button id="logoutBtn">Logout</button>
-<h2>Daily Tracker</h2>
-<button id="addDayBtn">Add Today</button>
-<table>
-<thead>
-<tr>
-<th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Daily Score</th>
-</tr>
-</thead>
-<tbody id="dailyBody"></tbody>
-</table>
-<p id="weeklyScore">Weekly Score: 0</p>
-<p id="levelDisplay">Level: 1</p>
-<p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
+  <div class="header-row">
+    <h2>Daily Tracker</h2>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <button id="addDayBtn">Add Today</button>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Daily Score</th>
+      </tr>
+    </thead>
+    <tbody id="dailyBody"></tbody>
+  </table>
+  <p id="weeklyScore">Weekly Score: 0</p>
+  <p id="levelDisplay">Level: 1</p>
+  <p id="streakDisplay">Progress Toward Next Level: 0/4 weeks</p>
 </div>
 
 <div class="card">
