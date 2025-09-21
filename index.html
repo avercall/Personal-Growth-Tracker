@@ -28,6 +28,7 @@ const db = getFirestore(appFirebase);
 let dailyRows={}, weeklyPoints=0, currentLevel=1, streak=0;
 let jobMinutes=0, impactMinutes=0, jobInterval, impactInterval;
 let tasks=[], habits=[];
+let dailyChart=null, weeklyChart=null;
 
 // --- Elements ---
 const loginCard = document.getElementById("login-card");
@@ -53,16 +54,10 @@ onAuthStateChanged(auth, async user => {
     loginCard.style.display = "none"; 
     appDiv.style.display = "block";
 
-    // --- Clear table first ---
-    document.getElementById("dailyBody").innerHTML="";
-
-    // Load dailyRows
     dailyRows={};
+    // Load dailyRows
     const dailySnap = await getDocs(collection(db,"users",user.uid,"dailyRows"));
-    dailySnap.forEach(docSnap => {
-      dailyRows[docSnap.id] = docSnap.data();
-      renderRow(dailyRows[docSnap.id]); // only render existing rows
-    });
+    dailySnap.forEach(docSnap => { dailyRows[docSnap.id] = docSnap.data(); });
 
     // Load tasks
     const taskSnap = await getDoc(doc(db,"users",user.uid,"meta","tasks"));
@@ -83,7 +78,9 @@ onAuthStateChanged(auth, async user => {
       document.getElementById("impactTime").innerText = Math.floor(impactMinutes/60)+"h";
     }
 
+    renderAllRows();
     renderCharts();
+
   } else {
     loginCard.style.display="block"; 
     appDiv.style.display="none";
@@ -121,32 +118,46 @@ function addDay(){
     alert("Today's row already exists");
     return;
   }
-  const row = { date: localDate, prayer:false, mindset:false, prioritize:false, visualize:false, exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0 };
+  const row = { 
+    date: localDate, prayer:false, mindset:false, prioritize:false, visualize:false, 
+    exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0 
+  };
   dailyRows[localDate]=row;
-  renderRow(row);
   saveDailyRow(row);
+  renderAllRows();
   renderCharts();
 }
 
 function renderRow(row){
   const tbody = document.getElementById("dailyBody");
   const tr = document.createElement("tr");
-  tr.id = "row_"+row.date;
+  tr.id = "row_" + row.date;
   tr.innerHTML = `
 <td>${row.date}</td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','prayer')"></td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','mindset')"></td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','prioritize')"></td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','visualize')"></td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','exercise')"></td>
-<td><input type="checkbox" onchange="toggleCheck('${row.date}','tracking')"></td>
-<td id="habitSlips_${row.date}">0</td>
-<td id="jobHours_${row.date}">0</td>
-<td id="impactHours_${row.date}">0</td>
-<td id="dailyScore_${row.date}">0</td>`;
+<td><input type="checkbox" ${row.prayer?'checked':''} onchange="toggleCheck('${row.date}','prayer')"></td>
+<td><input type="checkbox" ${row.mindset?'checked':''} onchange="toggleCheck('${row.date}','mindset')"></td>
+<td><input type="checkbox" ${row.prioritize?'checked':''} onchange="toggleCheck('${row.date}','prioritize')"></td>
+<td><input type="checkbox" ${row.visualize?'checked':''} onchange="toggleCheck('${row.date}','visualize')"></td>
+<td><input type="checkbox" ${row.exercise?'checked':''} onchange="toggleCheck('${row.date}','exercise')"></td>
+<td><input type="checkbox" ${row.tracking?'checked':''} onchange="toggleCheck('${row.date}','tracking')"></td>
+<td id="habitSlips_${row.date}">${row.habitSlips}</td>
+<td id="jobHours_${row.date}">${row.jobHours}</td>
+<td id="impactHours_${row.date}">${row.impactHours}</td>
+<td id="dailyScore_${row.date}">${calculateScore(row)}</td>
+`;
   tbody.appendChild(tr);
 }
 
+// Render last 7 rows
+function renderAllRows(){
+  const tbody = document.getElementById("dailyBody");
+  tbody.innerHTML="";
+  const dates = Object.keys(dailyRows).sort((a,b)=>new Date(b)-new Date(a));
+  const last7Dates = dates.slice(0,7).reverse(); // keep chronological order
+  last7Dates.forEach(d => renderRow(dailyRows[d]));
+}
+
+// --- Toggle checkbox ---
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
   row[field] = !row[field];
@@ -229,16 +240,16 @@ window.habitSlip = function(i){
 window.deleteHabit=function(i){ habits.splice(i,1); renderHabits(); saveHabits(); }
 
 // --- Charts ---
-let dailyChart=null, weeklyChart=null;
 function renderCharts(){
-  const dates = Object.keys(dailyRows).sort();
-  const dailyScores = dates.map(d=>calculateScore(dailyRows[d]));
+  const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
+  const last7Dates = dates.slice(-7);
+  const dailyScores = last7Dates.map(d=>calculateScore(dailyRows[d]));
 
   const dailyCtx = document.getElementById("dailyScoreChart").getContext("2d");
   if(dailyChart) dailyChart.destroy();
   dailyChart = new Chart(dailyCtx,{
     type:'line',
-    data:{ labels:dates, datasets:[{label:'Daily Score', data:dailyScores, borderColor:'blue', backgroundColor:'rgba(0,0,255,0.2)'}]},
+    data:{ labels:last7Dates, datasets:[{label:'Daily Score', data:dailyScores, borderColor:'blue', backgroundColor:'rgba(0,0,255,0.2)'}]},
     options:{ responsive:true, plugins:{legend:{display:true}} }
   });
 
