@@ -61,6 +61,7 @@ onAuthStateChanged(auth, async user => {
     loginCard.style.display = "none"; 
     appDiv.style.display = "block";
     await loadUserData(user.uid);
+    autoIncrementHabits();
   } else {
     loginCard.style.display="block"; 
     appDiv.style.display="none";
@@ -119,7 +120,6 @@ async function loadUserData(uid){
     const data = timerSnap.data();
     if(data.job) timerState.job = data.job;
     if(data.impact) timerState.impact = data.impact;
-    // resume intervals if running
     ['job','impact'].forEach(type=>{
       if(timerState[type].startTime){
         timerState[type].startTime = new Date(timerState[type].startTime).getTime();
@@ -141,6 +141,25 @@ async function loadUserData(uid){
   renderCharts();
 }
 
+// --- Habit auto-increment ---
+function autoIncrementHabits(){
+  const today = getLocalDate();
+  let changed = false;
+  habits.forEach(h=>{
+    if(!h.lastUpdated) h.lastUpdated = today;
+    const last = new Date(h.lastUpdated);
+    const now = new Date(today);
+    const diffDays = Math.floor((now - last) / (1000*60*60*24));
+    if(diffDays > 0){
+      h.daysSinceLastSlip += diffDays;
+      h.lastUpdated = today;
+      changed = true;
+    }
+  });
+  if(changed){ saveHabits(); renderHabits(); }
+}
+setInterval(()=>{ autoIncrementHabits(); }, 60000);
+
 // --- Weekly score and Level ---
 function updateWeeklyScore(){
   weeklyPoints = 0;
@@ -152,7 +171,7 @@ function updateLevelAndStreak(){
   const currentLevelReq = determineLevel(weeklyPoints);
   if(currentLevelReq > level){
     streak++;
-    if(streak >= 4){ // four weeks in a row
+    if(streak >= 4){
       level = currentLevelReq;
       streak = 0;
       alert("Congratulations! You've leveled up to Level " + level + "!");
@@ -182,14 +201,13 @@ function addDay(){
   renderCharts();
 }
 
+// --- Render Rows ---
 function renderRow(row){
   const tbody = document.getElementById("dailyBody");
   const tr = document.createElement("tr");
   tr.id = "row_" + row.date;
-
   const score = calculateScore(row);
   tr.style.backgroundColor = score>=15?"#d4edda":(score>=10?"#fff3cd":"#f8d7da");
-
   tr.innerHTML = `
 <td>${row.date}</td>
 <td><input type="checkbox" ${row.prayer?'checked':''} onchange="toggleCheck('${row.date}','prayer')"></td>
@@ -246,7 +264,7 @@ window.toggleTask=function(i){ tasks[i].completed=!tasks[i].completed; renderTas
 // --- Habits ---
 document.getElementById("addHabitBtn").addEventListener("click", ()=>{
   const val = document.getElementById("habitInput").value.trim();
-  if(val){ habits.push({name:val,daysSinceLastSlip:0}); renderHabits(); saveHabits(); document.getElementById("habitInput").value=""; }
+  if(val){ habits.push({name:val,daysSinceLastSlip:0,lastUpdated:getLocalDate()}); renderHabits(); saveHabits(); document.getElementById("habitInput").value=""; }
 });
 function renderHabits(){
   const div = document.getElementById("habitList"); div.innerHTML="";
@@ -259,6 +277,7 @@ function renderHabits(){
 }
 window.habitSlip=function(i){
   habits[i].daysSinceLastSlip=0;
+  habits[i].lastUpdated=getLocalDate();
   const today = getLocalDate();
   if(dailyRows[today]) dailyRows[today].habitSlips++;
   saveHabits(); saveDailyRow(dailyRows[today]); 
