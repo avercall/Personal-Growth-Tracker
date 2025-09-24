@@ -141,18 +141,18 @@ async function loadUserData(uid){
   renderCharts();
 }
 
-// --- Habit auto-increment ---
+// --- Habit auto-increment (FIXED) ---
 function autoIncrementHabits(){
-  const today = getLocalDate();
+  const today = new Date(getLocalDate());
   let changed = false;
   habits.forEach(h=>{
-    if(!h.lastUpdated) h.lastUpdated = today;
+    if(!h.lastUpdated) h.lastUpdated = getLocalDate();
     const last = new Date(h.lastUpdated);
-    const now = new Date(today);
-    const diffDays = Math.floor((now - last) / (1000*60*60*24));
+    const diffMs = today - last;
+    const diffDays = diffMs / (1000*60*60*24);
     if(diffDays > 0){
-      h.daysSinceLastSlip += diffDays;
-      h.lastUpdated = today;
+      h.daysSinceLastSlip += diffDays; // allow fractional increments
+      h.lastUpdated = getLocalDate();
       changed = true;
     }
   });
