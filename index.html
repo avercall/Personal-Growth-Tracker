@@ -186,7 +186,7 @@ function autoIncrementHabits(){
     const diffMs = today - last;
     const diffDays = diffMs / (1000*60*60*24);
     if(diffDays > 0){
-      h.daysSinceLastSlip += diffDays; // allow fractional increments
+      h.daysSinceLastSlip += diffDays; // fractional increments allowed
       h.lastUpdated = getLocalDate();
       changed = true;
     }
@@ -252,13 +252,12 @@ function renderRow(row){
 <td><input type="checkbox" ${row.exercise?'checked':''} onchange="toggleCheck('${row.date}','exercise')"></td>
 <td><input type="checkbox" ${row.tracking?'checked':''} onchange="toggleCheck('${row.date}','tracking')"></td>
 <td id="habitSlips_${row.date}">${row.habitSlips}</td>
-<td><input type="number" min="0" step="0.01" value="${row.jobHours}" onchange="updateHours('${row.date}','job',this.value)"></td>
-<td><input type="number" min="0" step="0.01" value="${row.impactHours}" onchange="updateHours('${row.date}','impact',this.value)"></td>
+<td><input type="number" min="0" step="0.1" value="${row.jobHours}" onchange="updateHours('${row.date}','job',this.value)"></td>
+<td><input type="number" min="0" step="0.1" value="${row.impactHours}" onchange="updateHours('${row.date}','impact',this.value)"></td>
 <td id="dailyScore_${row.date}">${score}</td>
 `;
   tbody.appendChild(tr);
 }
-
 function renderAllRows(){
   const tbody = document.getElementById("dailyBody"); tbody.innerHTML="";
   const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
@@ -267,17 +266,17 @@ function renderAllRows(){
   last7.forEach(d=>{ renderRow(dailyRows[d]); if(d===today) document.getElementById("row_"+d).style.fontWeight="bold"; });
 }
 
-// Update editable hours
+// --- Update hours directly ---
 window.updateHours = function(date,type,value){
   const row = dailyRows[date];
-  row[type+'Hours'] = Number(value) || 0;
+  row[type+"Hours"] = Number(value);
   saveDailyRow(row);
   renderAllRows();
   updateWeeklyScore();
   renderCharts();
 }
 
-// Toggle checkboxes
+// --- Toggle checkboxes ---
 window.toggleCheck = function(date,field){
   const row = dailyRows[date];
   row[field]=!row[field];
@@ -287,6 +286,7 @@ window.toggleCheck = function(date,field){
   updateWeeklyScore();
   renderCharts();
 }
+
 // --- Tasks ---
 document.getElementById("addTaskBtn").addEventListener("click", ()=>{
   const val = document.getElementById("taskInput").value.trim();
@@ -315,7 +315,7 @@ function renderHabits(){
   habits.forEach((h,i)=>{
     const p=document.createElement("p");
     p.className="habit";
-    p.innerHTML=`${h.name} - ${h.daysSinceLastSlip.toFixed(0)} days <button onclick="habitSlip(${i})">Slip</button> <button onclick="deleteHabit(${i})">Delete</button>`;
+    p.innerHTML=`${h.name} - ${h.daysSinceLastSlip.toFixed(1)} days <button onclick="habitSlip(${i})">Slip</button> <button onclick="deleteHabit(${i})">Delete</button>`;
     div.appendChild(p);
   });
 }
@@ -374,12 +374,10 @@ function logTime(type){
     dailyRows[today].impactHours = (dailyRows[today].impactHours || 0) + hours;
   }
 
+  // Reset timer fully
   timerState[type].accumulatedSeconds = 0;
   timerState[type].startTime = null;
-  if(timerState[type].interval){
-    clearInterval(timerState[type].interval);
-    timerState[type].interval = null;
-  }
+  if(timerState[type].interval){ clearInterval(timerState[type].interval); timerState[type].interval=null; }
 
   saveDailyRow(dailyRows[today]);
   saveTimers();
@@ -389,10 +387,7 @@ function logTime(type){
   renderCharts();
 }
 function resetTimer(type){
-  if(timerState[type].interval){
-    clearInterval(timerState[type].interval);
-    timerState[type].interval = null;
-  }
+  if(timerState[type].interval){ clearInterval(timerState[type].interval); timerState[type].interval=null; }
   timerState[type].startTime = null;
   timerState[type].accumulatedSeconds = 0;
   saveTimers();
@@ -420,8 +415,9 @@ function renderCharts(){
   const last7 = dates.slice(-7);
   const dailyScores = last7.map(d=>calculateScore(dailyRows[d]));
   if(dailyChart) dailyChart.destroy();
-  dailyChart = new Chart(dailyCtx,{type:'line',data:{labels:last7,datasets:[{label:'Daily Score',data:dailyScores,borderColor:'blue',fill:false}]}, options:{responsive:true, maintainAspectRatio:false}});
+  dailyChart = new Chart(dailyCtx,{type:'line',data:{labels:last7,datasets:[{label:'Daily Score',data:dailyScores,borderColor:'blue',fill:false,lineTension:0}]}, options:{responsive:true,height:200, maintainAspectRatio:false}});
 
+  // Weekly bar chart
   const weeks = {};
   dates.forEach(d=>{
     const dateObj=new Date(d); 
@@ -432,17 +428,21 @@ function renderCharts(){
   });
   const weekLabels=Object.keys(weeks), weekScores=Object.values(weeks);
   if(weeklyChart) weeklyChart.destroy();
-  weeklyChart = new Chart(weeklyCtx,{type:'bar',data:{labels:weekLabels,datasets:[{label:'Weekly Score',data:weekScores,backgroundColor:'orange'}]}, options:{responsive:true, maintainAspectRatio:false}});
+  weeklyChart = new Chart(weeklyCtx,{type:'bar',data:{labels:weekLabels,datasets:[{label:'Weekly Score',data:weekScores,backgroundColor:'orange'}]}, options:{responsive:true,height:200, maintainAspectRatio:false}});
 
-  const last30 = dates.slice(-30);
-  const monthLabels=last30.map(d=>{
-    const dt = new Date(d);
-    return dt.toLocaleDateString('default',{month:'short',day:'numeric'});
+  // Monthly line chart (aggregated per month)
+  const months = {};
+  dates.forEach(d=>{
+    const dateObj=new Date(d);
+    const key = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}`;
+    if(!months[key]) months[key]=0;
+    months[key]+=calculateScore(dailyRows[d]);
   });
-  const monthScores = last30.map(d=>calculateScore(dailyRows[d]));
+  const monthLabels=Object.keys(months), monthScores=Object.values(months);
   if(monthlyChart) monthlyChart.destroy();
-  monthlyChart = new Chart(monthlyCtx,{type:'line',data:{labels:monthLabels,datasets:[{label:'Last 30 Days Score',data:monthScores,borderColor:'green',fill:false}]}, options:{responsive:true, maintainAspectRatio:false}});
+  monthlyChart = new Chart(monthlyCtx,{type:'line',data:{labels:monthLabels,datasets:[{label:'Monthly Score',data:monthScores,borderColor:'green',fill:false,lineTension:0}]}, options:{responsive:true,height:200, maintainAspectRatio:false}});
 
+  // Pie chart
   const categories=['Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','JobHours','ImpactHours','HabitSlips'];
   const totals=[0,0,0,0,0,0,0,0,0];
   for(const d in dailyRows){
@@ -451,19 +451,19 @@ function renderCharts(){
     totals[4]+=row.exercise?3:0; totals[5]+=row.tracking?3:0; totals[6]+=row.jobHours; totals[7]+=row.impactHours*3; totals[8]+=row.habitSlips;
   }
   if(pieChart) pieChart.destroy();
-  pieChart = new Chart(pieCtx,{type:'pie',data:{labels:categories,datasets:[{data:totals,backgroundColor:['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#00bcd4','#4caf50','#ff9800']}]}, options:{responsive:true, maintainAspectRatio:false}});
+  pieChart = new Chart(pieCtx,{type:'pie',data:{labels:categories,datasets:[{data:totals,backgroundColor:['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#00bcd4','#4caf50','#ff9800']}]}, options:{responsive:true, height:200, maintainAspectRatio:false}});
 }
 </script>
 
 <style>
 body{font-family:sans-serif;margin:0;padding:0;background:#f2f2f2;}
 .card{background:white;padding:20px;margin:15px auto;width:90%;max-width:1000px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed;word-wrap:break-word;}
-th,td{border:1px solid #ccc;padding:6px;text-align:center;font-size:14px;}
+table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed;}
+th,td{border:1px solid #ccc;padding:6px;text-align:center;word-wrap:break-word;}
 tr:nth-child(even){background:#f9f9f9;}
 tr:hover{background:#eef;}
 input[type="checkbox"]{transform:scale(1.2);cursor:pointer;}
-input[type="number"]{width:60px;text-align:center;}
+input[type="number"]{width:60px;}
 button{padding:5px 10px;border:none;border-radius:6px;background:#007bff;color:white;cursor:pointer;margin:2px;}
 button:hover{transform:scale(1.05);}
 .header-row{display:flex;justify-content: space-between;align-items:center;}
@@ -475,9 +475,8 @@ button:hover{transform:scale(1.05);}
 #taskInput,#habitInput{text-align:center;}
 #taskList,#habitList{text-align:center;}
 #jobTime,#impactTime{text-align:center;}
-canvas{height:300px !important;margin-top:15px;}
+canvas{margin-top:15px; max-height:300px;}
 </style>
-</head>
 <body>
 
 <div id="login-card" class="card">
