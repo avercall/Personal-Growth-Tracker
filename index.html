@@ -46,7 +46,7 @@ function getLocalDate(){
 }
 function calculateScore(row){
   return (row.prayer?1:0)+(row.mindset?1:0)+(row.prioritize?1:0)+(row.visualize?1:0)+
-         (row.exercise?3:0)+(row.tracking?3:0)-row.habitSlips+row.jobHours+row.impactHours*3;
+         (row.exercise?3:0)+(row.tracking?3:0)-row.habitSlips+Number(row.jobHours)+Number(row.impactHours*3);
 }
 function determineLevel(score){
   if(score <= 110) return 1;
@@ -194,7 +194,6 @@ function autoIncrementHabits(){
   if(changed){ saveHabits(); renderHabits(); }
 }
 setInterval(()=>{ autoIncrementHabits(); }, 60000);
-
 // --- Weekly score and Level ---
 function updateWeeklyScore(){
   weeklyPoints = 0;
@@ -238,7 +237,7 @@ function addDay(){
 
 // --- Render Rows ---
 function renderRow(row){
-  const tbody = document.getElementById("dailyTableBody");
+  const tbody = document.getElementById("dailyBody");
   const tr = document.createElement("tr");
   tr.id = "row_" + row.date;
   const score = calculateScore(row);
@@ -258,18 +257,19 @@ function renderRow(row){
 `;
   tbody.appendChild(tr);
 }
+
 function renderAllRows(){
-  const tbody = document.getElementById("dailyTableBody"); tbody.innerHTML="";
+  const tbody = document.getElementById("dailyBody"); tbody.innerHTML="";
   const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
   const last7 = dates.slice(-7);
   const today = getLocalDate();
   last7.forEach(d=>{ renderRow(dailyRows[d]); if(d===today) document.getElementById("row_"+d).style.fontWeight="bold"; });
 }
-window.updateHours = function(date,type,val){
+
+// --- Update job/impact hours manually ---
+window.updateHours = function(date,type,value){
   const row = dailyRows[date];
-  const num = parseFloat(val)||0;
-  if(type==='job') row.jobHours=num;
-  else if(type==='impact') row.impactHours=num;
+  row[type==='job'?'jobHours':'impactHours'] = parseFloat(value)||0;
   saveDailyRow(row);
   renderAllRows();
   updateWeeklyScore();
@@ -399,98 +399,141 @@ function resetTimer(type){
   updateTimersUI(type);
 }
 function updateTimersUI(type){
-  const seconds = timerState[type].accumulatedSeconds + (timerState[type].startTime ? Math.floor((Date.now()-timerState[type].startTime)/1000) : 0);
-  const h = Math.floor(seconds/3600);
-  const m = Math.floor((seconds%3600)/60);
-  const s = seconds%60;
-  document.getElementById(type+'Timer').innerText = `${h}h ${m}m ${s}s`;
+  const seconds = timerState[type].accumulatedSeconds + (timerState[type].startTime ? Math.floor((Date.now()-timerState[type].startTime)/1000):0);
+  if(type==='job') document.getElementById("jobTime").innerText=formatSeconds(seconds);
+  if(type==='impact') document.getElementById("impactTime").innerText=formatSeconds(seconds);
 }
+function formatSeconds(sec){
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return `${h}h ${m}m ${s}s`;
+}
+setInterval(()=>{ saveTimers(); },10000);
 
-// --- Charts (placeholder simple render) ---
+// --- Charts ---
 function renderCharts(){
-  // Can integrate Chart.js charts as needed
-}
+  const dailyCtx = document.getElementById("dailyScoreChart").getContext("2d");
+  const weeklyCtx = document.getElementById("weeklyBarChart").getContext("2d");
+  const monthlyCtx = document.getElementById("monthlyLineChart").getContext("2d");
+  const pieCtx = document.getElementById("pieChart").getContext("2d");
 
+  const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
+
+  // Daily Chart (last 7)
+  const last7 = dates.slice(-7);
+  const dailyScores = last7.map(d=>calculateScore(dailyRows[d]));
+  if(dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(dailyCtx,{type:'line',data:{labels:last7,datasets:[{label:'Daily Score',data:dailyScores,borderColor:'blue',fill:false}]}});
+
+  // Weekly Chart
+  const weeks = {};
+  dates.forEach(d=>{
+    const dateObj=new Date(d); 
+    const sunday = new Date(dateObj); sunday.setDate(sunday.getDate()-dateObj.getDay());
+    const key = `${sunday.getMonth()+1}/${sunday.getDate()}/${sunday.getFullYear()}`;
+    if(!weeks[key]) weeks[key]=0;
+    weeks[key]+=calculateScore(dailyRows[d]);
+  });
+  const weekLabels=Object.keys(weeks), weekScores=Object.values(weeks);
+  if(weeklyChart) weeklyChart.destroy();
+  weeklyChart = new Chart(weeklyCtx,{type:'bar',data:{labels:weekLabels,datasets:[{label:'Weekly Score',data:weekScores,backgroundColor:'orange'}]}});
+
+  // Monthly Chart (daily scores of last 30 days)
+  const last30 = dates.slice(-30);
+  const monthLabels = last30.map(d=>d);
+  const monthScores = last30.map(d=>calculateScore(dailyRows[d]));
+  if(monthlyChart) monthlyChart.destroy();
+  monthlyChart = new Chart(monthlyCtx,{type:'line',data:{labels:monthLabels,datasets:[{label:'Monthly Score',data:monthScores,borderColor:'green',fill:false}]}});
+
+  // Pie Chart
+  const categories=['Prayer','Mindset','Prioritize','Visualize','Exercise','Tracking','JobHours','ImpactHours','HabitSlips'];
+  const totals=[0,0,0,0,0,0,0,0,0];
+  for(const d in dailyRows){
+    const row=dailyRows[d];
+    totals[0]+=row.prayer?1:0; totals[1]+=row.mindset?1:0; totals[2]+=row.prioritize?1:0; totals[3]+=row.visualize?1:0;
+    totals[4]+=row.exercise?3:0; totals[5]+=row.tracking?3:0; totals[6]+=row.jobHours; totals[7]+=row.impactHours*3; totals[8]+=row.habitSlips;
+  }
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(pieCtx,{type:'pie',data:{labels:categories,datasets:[{data:totals,backgroundColor:['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#00bcd4','#4caf50','#ff9800']}]}})
+}
 </script>
+
 <style>
-body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f2f5; }
-.section{margin:10px;padding:10px;background:#fff;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
-.table-container{max-height:400px; overflow-y:auto; overflow-x:auto; border:1px solid #ddd; border-radius:6px; background:#fff; padding:8px;}
-table{width:100%; border-collapse: collapse; font-size:14px;}
-th,td{padding:6px 10px; border:1px solid #ddd; text-align:center;}
-th{background:#f8f8f8; position:sticky; top:0; z-index:2;}
-.habit button{margin-left:4px;}
-#login-card{padding:20px;max-width:300px;margin:20px auto;border:1px solid #ccc;border-radius:6px;background:#fff;}
-#app{display:none;}
+body{font-family:sans-serif;margin:0;padding:0;background:#f2f2f2;}
+.card{background:white;padding:20px;margin:15px auto;width:95%;max-width:1200px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+table{width:100%;border-collapse:collapse;margin-top:10px;table-layout:fixed;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;word-wrap:break-word;}
+tr:nth-child(even){background:#f9f9f9;}
+tr:hover{background:#eef;}
+input[type="checkbox"]{transform:scale(1.2);cursor:pointer;}
+input[type="number"]{width:60px;text-align:center;}
+button{padding:5px 10px;border:none;border-radius:6px;background:#007bff;color:white;cursor:pointer;margin:2px;}
+button:hover{transform:scale(1.05);}
+.header-row{display:flex;justify-content: space-between;align-items:center;}
+.header-row h2{margin:0;text-align:center;width:100%;}
+.header-row button{margin:0;background:#dc3545;}
+.habit{margin-bottom:5px;}
+#login-card{max-width:400px;margin-top:50px;text-align:center;}
+#login-card input{margin:5px auto;display:block;width:80%;}
+#taskInput,#habitInput{text-align:center;}
+#taskList,#habitList{text-align:center;}
+#jobTime,#impactTime{text-align:center;}
 </style>
 </head>
 <body>
-<div id="login-card">
-  <h2>Login / Signup</h2>
-  <input type="email" id="email" placeholder="Email"><br><br>
-  <input type="password" id="password" placeholder="Password"><br><br>
-  <button id="loginBtn">Login</button>
-  <button id="signupBtn">Signup</button>
-  <p id="loginError" style="color:red;"></p>
+
+<div id="login-card" class="card">
+<h2>Login / Signup</h2>
+<p id="loginError" style="color:red;"></p>
+<input id="email" type="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
+<button id="loginBtn">Login</button>
+<button id="signupBtn">Sign Up</button>
 </div>
 
-<div id="app">
-  <button id="logoutBtn">Logout</button>
-  <h1>Growth Tracker</h1>
-  <div id="weeklyScore">Weekly Score: 0</div>
+<div id="app" style="display:none;">
 
-  <!-- Daily Tracker Section -->
-  <section id="dailyTracker" class="section">
+<div class="card">
+  <div class="header-row">
     <h2>Daily Tracker</h2>
-    <button id="addDayBtn">Add Today</button>
-    <div class="table-container">
-      <table id="dailyTable">
-        <thead>
-          <tr>
-            <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th>
-            <th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Score</th>
-          </tr>
-        </thead>
-        <tbody id="dailyTableBody"></tbody>
-      </table>
-    </div>
-  </section>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <button id="addDayBtn">Add Today</button>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Prayer</th><th>Mindset</th><th>Prioritize</th><th>Visualize</th><th>Exercise</th><th>Tracking</th><th>Habit Slips</th><th>Job Hours</th><th>Impact Hours</th><th>Score</th>
+      </tr>
+    </thead>
+    <tbody id="dailyBody"></tbody>
+  </table>
+  <p id="weeklyScore">Weekly Score: 0</p>
+</div>
 
-  <!-- Tasks -->
-  <section class="section">
-    <h2>Tasks</h2>
-    <input type="text" id="taskInput" placeholder="New Task"><button id="addTaskBtn">Add</button>
-    <button id="resetTasksBtn">Reset</button>
-    <div id="taskList"></div>
-  </section>
+<div class="card"><h2>Tasks</h2><input id="taskInput" placeholder="New Task"><button id="addTaskBtn">Add Task</button><button id="resetTasksBtn">Reset</button><div id="taskList"></div></div>
 
-  <!-- Habits -->
-  <section class="section">
-    <h2>Habits</h2>
-    <input type="text" id="habitInput" placeholder="New Habit"><button id="addHabitBtn">Add</button>
-    <div id="habitList"></div>
-  </section>
+<div class="card"><h2>Habits</h2><input id="habitInput" placeholder="New Habit"><button id="addHabitBtn">Add Habit</button><div id="habitList"></div></div>
 
-  <!-- Timers -->
-  <section class="section">
-    <h2>Timers</h2>
-    <div>
-      <h3>Job Hours</h3>
-      <span id="jobTimer">0h 0m 0s</span>
-      <button id="startJobBtn">Start</button>
-      <button id="stopJobBtn">Stop</button>
-      <button id="logJobBtn">Log</button>
-      <button id="resetJobBtn">Reset</button>
-    </div>
-    <div>
-      <h3>Impact Hours</h3>
-      <span id="impactTimer">0h 0m 0s</span>
-      <button id="startImpactBtn">Start</button>
-      <button id="stopImpactBtn">Stop</button>
-      <button id="logImpactBtn">Log</button>
-      <button id="resetImpactBtn">Reset</button>
-    </div>
-  </section>
+<div class="card"><h2>Timers</h2>
+  <button id="startJobBtn">Start Job Hours</button>
+  <button id="stopJobBtn">Stop Job Hours</button>
+  <button id="logJobBtn">Log Job Hours</button>
+  <button id="resetJobBtn">Reset Job Hours</button>
+  <p id="jobTime">0h 0m 0s</p>
+
+  <button id="startImpactBtn">Start Impact Hours</button>
+  <button id="stopImpactBtn">Stop Impact Hours</button>
+  <button id="logImpactBtn">Log Impact Hours</button>
+  <button id="resetImpactBtn">Reset Impact Hours</button>
+  <p id="impactTime">0h 0m 0s</p>
+</div>
+
+<div class="card"><h2>Charts</h2>
+  <canvas id="dailyScoreChart"></canvas>
+  <canvas id="weeklyBarChart"></canvas>
+  <canvas id="monthlyLineChart"></canvas>
+  <canvas id="pieChart"></canvas>
+</div>
+
 </div>
 </body>
 </html>
