@@ -55,11 +55,42 @@ function determineLevel(score){
   return 4;
 }
 
+// --- Migration for old timers ---
+async function migrateTimers(){
+  if(!auth.currentUser) return;
+  const ref = doc(db,"users",auth.currentUser.uid,"meta","timers");
+  const snap = await getDoc(ref);
+  if(!snap.exists()) return;
+
+  let timers = snap.data();
+  let changed = false;
+
+  ["job","impact"].forEach(type=>{
+    if(timers[type]){
+      if("interval" in timers[type]){ delete timers[type].interval; changed = true; }
+      if(timers[type].startTime && typeof timers[type].startTime !== "number"){
+        timers[type].startTime = Number(timers[type].startTime) || null;
+        changed = true;
+      }
+      if(typeof timers[type].accumulatedSeconds !== "number"){
+        timers[type].accumulatedSeconds = Number(timers[type].accumulatedSeconds) || 0;
+        changed = true;
+      }
+    }
+  });
+
+  if(changed){
+    await setDoc(ref,timers);
+    console.log("Migrated old timer data ✅");
+  }
+}
+
 // --- Auth state ---
 onAuthStateChanged(auth, async user => {
   if(user){
     loginCard.style.display = "none"; 
     appDiv.style.display = "block";
+    await migrateTimers();
     await loadUserData(user.uid);
     autoIncrementHabits();
   } else {
@@ -91,10 +122,14 @@ async function saveTasks(){ if(auth.currentUser) await setDoc(doc(db,"users",aut
 async function saveHabits(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","habits"),{habits}); }
 async function saveTimers(){
   if(!auth.currentUser) return;
-  const jobCopy = {...timerState.job};
-  const impactCopy = {...timerState.impact};
-  if(jobCopy.startTime) jobCopy.startTime = new Date(jobCopy.startTime).getTime();
-  if(impactCopy.startTime) impactCopy.startTime = new Date(impactCopy.startTime).getTime();
+  const jobCopy = {
+    accumulatedSeconds: timerState.job.accumulatedSeconds || 0,
+    startTime: timerState.job.startTime ? Number(timerState.job.startTime) : null
+  };
+  const impactCopy = {
+    accumulatedSeconds: timerState.impact.accumulatedSeconds || 0,
+    startTime: timerState.impact.startTime ? Number(timerState.impact.startTime) : null
+  };
   await setDoc(doc(db,"users",auth.currentUser.uid,"meta","timers"),{job:jobCopy,impact:impactCopy});
 }
 async function saveLevel(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","level"),{level,streak}); }
@@ -314,13 +349,30 @@ function stopTimer(type){
 function logTime(type){
   stopTimer(type);
   const today = getLocalDate();
-  const hours = Math.floor(timerState[type].accumulatedSeconds/3600);
-  if(dailyRows[today]){
-    if(type==='job') dailyRows[today].jobHours += hours;
-    if(type==='impact') dailyRows[today].impactHours += hours;
-    saveDailyRow(dailyRows[today]);
+  const hours = Number((timerState[type].accumulatedSeconds / 3600).toFixed(2));
+  if(!dailyRows[today]){
+    const row = { 
+      date: today, prayer:false, mindset:false, prioritize:false, visualize:false, 
+      exercise:false, tracking:false, habitSlips:0, jobHours:0, impactHours:0 
+    };
+    dailyRows[today] = row;
+    saveDailyRow(row);
   }
+
+  if(type === 'job'){
+    dailyRows[today].jobHours = (dailyRows[today].jobHours || 0) + hours;
+  } else if(type === 'impact'){
+    dailyRows[today].impactHours = (dailyRows[today].impactHours || 0) + hours;
+  }
+
   timerState[type].accumulatedSeconds = 0;
+  timerState[type].startTime = null;
+  if(timerState[type].interval){
+    clearInterval(timerState[type].interval);
+    timerState[type].interval = null;
+  }
+
+  saveDailyRow(dailyRows[today]);
   saveTimers();
   updateTimersUI(type);
   renderAllRows();
@@ -328,7 +380,11 @@ function logTime(type){
   renderCharts();
 }
 function resetTimer(type){
-  stopTimer(type);
+  if(timerState[type].interval){
+    clearInterval(timerState[type].interval);
+    timerState[type].interval = null;
+  }
+  timerState[type].startTime = null;
   timerState[type].accumulatedSeconds = 0;
   saveTimers();
   updateTimersUI(type);
