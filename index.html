@@ -120,6 +120,8 @@ document.getElementById("logoutBtn").addEventListener("click", async ()=>{ await
 async function saveDailyRow(row){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"dailyRows",row.date),row); }
 async function saveTasks(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","tasks"),{tasks}); }
 async function saveHabits(){ if(auth.currentUser) await setDoc(doc(db,"users",auth.currentUser.uid,"meta","habits"),{habits}); }
+
+// --- PATCHED saveTimers ---
 async function saveTimers(){
   if(!auth.currentUser) return;
   const jobCopy = {
@@ -176,7 +178,7 @@ async function loadUserData(uid){
   renderCharts();
 }
 
-// --- Habit auto-increment (FIXED) ---
+// --- Habit auto-increment ---
 function autoIncrementHabits(){
   const today = new Date(getLocalDate());
   let changed = false;
@@ -186,7 +188,7 @@ function autoIncrementHabits(){
     const diffMs = today - last;
     const diffDays = diffMs / (1000*60*60*24);
     if(diffDays > 0){
-      h.daysSinceLastSlip += diffDays; // allow fractional increments
+      h.daysSinceLastSlip += diffDays;
       h.lastUpdated = getLocalDate();
       changed = true;
     }
@@ -236,7 +238,7 @@ function addDay(){
   renderCharts();
 }
 
-// --- Render Rows ---
+// --- Render Rows (original renderRow left intact) ---
 function renderRow(row){
   const tbody = document.getElementById("dailyBody");
   const tr = document.createElement("tr");
@@ -259,13 +261,45 @@ function renderRow(row){
   tbody.appendChild(tr);
 }
 
+// --- PATCHED renderAllRows that creates numeric inputs for edits ---
 function renderAllRows(){
-  const tbody = document.getElementById("dailyBody"); tbody.innerHTML="";
+  const tbody = document.getElementById("dailyBody"); 
+  tbody.innerHTML="";
   const dates = Object.keys(dailyRows).sort((a,b)=>new Date(a)-new Date(b));
   const last7 = dates.slice(-7);
   const today = getLocalDate();
-  last7.forEach(d=>{ renderRow(dailyRows[d]); if(d===today) document.getElementById("row_"+d).style.fontWeight="bold"; });
+
+  last7.forEach(d=>{
+    const row = dailyRows[d];
+    const tr = document.createElement("tr");
+    const score = calculateScore(row);
+    tr.style.backgroundColor = score>=15?"#d4edda":(score>=10?"#fff3cd":"#f8d7da");
+    tr.innerHTML = `
+<td>${row.date}</td>
+<td><input type="checkbox" ${row.prayer?'checked':''} onchange="toggleCheck('${row.date}','prayer')"></td>
+<td><input type="checkbox" ${row.mindset?'checked':''} onchange="toggleCheck('${row.date}','mindset')"></td>
+<td><input type="checkbox" ${row.prioritize?'checked':''} onchange="toggleCheck('${row.date}','prioritize')"></td>
+<td><input type="checkbox" ${row.visualize?'checked':''} onchange="toggleCheck('${row.date}','visualize')"></td>
+<td><input type="checkbox" ${row.exercise?'checked':''} onchange="toggleCheck('${row.date}','exercise')"></td>
+<td><input type="checkbox" ${row.tracking?'checked':''} onchange="toggleCheck('${row.date}','tracking')"></td>
+<td><input type="number" min="0" step="1" value="${row.habitSlips||0}" onchange="updateNumber('${row.date}','habitSlips',this.value)"></td>
+<td><input type="number" min="0" step="0.25" value="${row.jobHours||0}" onchange="updateNumber('${row.date}','jobHours',this.value)"></td>
+<td><input type="number" min="0" step="0.25" value="${row.impactHours||0}" onchange="updateNumber('${row.date}','impactHours',this.value)"></td>
+<td>${score}</td>
+`;
+    tbody.appendChild(tr);
+    if(d===today) tr.style.fontWeight="bold";
+  });
 }
+
+window.updateNumber = function(date, field, val){
+  if(!dailyRows[date]) return;
+  dailyRows[date][field] = Number(val) || 0;
+  saveDailyRow(dailyRows[date]);
+  renderAllRows();
+  updateWeeklyScore();
+  renderCharts();
+};
 
 // Toggle checkboxes
 window.toggleCheck = function(date,field){
@@ -346,6 +380,8 @@ function stopTimer(type){
   saveTimers();
   updateTimersUI(type);
 }
+
+// --- PATCHED logTime (fractional hours + auto-create today's row) ---
 function logTime(type){
   stopTimer(type);
   const today = getLocalDate();
@@ -379,6 +415,8 @@ function logTime(type){
   updateWeeklyScore();
   renderCharts();
 }
+
+// --- PATCHED resetTimer (discard partial running time) ---
 function resetTimer(type){
   if(timerState[type].interval){
     clearInterval(timerState[type].interval);
@@ -389,6 +427,7 @@ function resetTimer(type){
   saveTimers();
   updateTimersUI(type);
 }
+
 function updateTimersUI(type){
   const seconds = timerState[type].accumulatedSeconds + (timerState[type].startTime ? Math.floor((Date.now()-timerState[type].startTime)/1000):0);
   if(type==='job') document.getElementById("jobTime").innerText=formatSeconds(seconds);
